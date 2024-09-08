@@ -3,7 +3,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from .views import (
     UserRegistrationView, UserLoginView, UserLogoutView, UserProfileView, 
     UserListView, UserDetailView, OrganizationListView, OrganizationDetailView,
-    PasswordChangeView, PasswordResetView, PasswordResetConfirmView
+    PasswordChangeView, PasswordResetView, PasswordResetConfirmView,GetOrganizationView
 )
 
 urlpatterns = [
@@ -26,4 +26,5 @@ urlpatterns = [
     # Organization management
     path('organizations/', OrganizationListView.as_view(), name='organization-list'),
     path('organizations/<int:pk>/', OrganizationDetailView.as_view(), name='organization-detail'),
+    path('get-organizations/', GetOrganizationView.as_view(), name='get-organizations'),
 ]

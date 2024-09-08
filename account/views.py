@@ -97,16 +97,16 @@ class OrganizationListView(generics.ListCreateAPIView):
     serializer_class = OrganizationSerializer
     permission_classes = (permissions.IsAuthenticated,)
 
-    def perform_create(self, serializer):
-        serializer.save(admin=self.request.user)
 
 class OrganizationDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Organization.objects.all()
     serializer_class = OrganizationSerializer
     permission_classes = (permissions.IsAuthenticated,)
 
-    def get_queryset(self):
+class GetOrganizationView(generics.GenericAPIView):
+    serializer_class = OrganizationSerializer
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get(self, request):
         user = self.request.user
-        if user.is_superuser:
-            return Organization.objects.all()
-        return Organization.objects.filter(admin=user)
+        return Response(user.organization)

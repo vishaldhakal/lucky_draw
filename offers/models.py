@@ -4,8 +4,6 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 import datetime
 from django.utils import timezone
 
-
-
 class Sales(models.Model):
     sales_count = models.IntegerField(default=0)
     date = models.DateField(
