@@ -3,8 +3,8 @@ from django.shortcuts import get_object_or_404
 from rest_framework import generics,status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from .serializers import GiftItemSerializer,LuckyDrawSystemSerializer,RechargeCardSerializer,IMEINOSerializer,FixOfferSerializer,BaseOfferSerializer,MobilePhoneOfferSerializer,RechargeCardOfferSerializer,CustomerSerializer
-from .models import Sales,GiftItem,LuckyDrawSystem,RechargeCard,IMEINO,FixOffer,BaseOffer,MobilePhoneOffer,RechargeCardOffer,ElectronicsShopOffer,Customer
+from .serializers import GiftItemSerializer,LuckyDrawSystemSerializer,RechargeCardSerializer,IMEINOSerializer,FixOfferSerializer,MobileOfferTypeSerializer,MobilePhoneOfferSerializer,RechargeCardOfferSerializer,CustomerSerializer
+from .models import Sales,GiftItem,LuckyDrawSystem,RechargeCard,IMEINO,FixOffer,BaseOffer,MobilePhoneOffer,RechargeCardOffer,ElectronicsShopOffer,Customer,MobileOfferType
 
 # Create your views here.
 
@@ -189,29 +189,25 @@ class FixOfferSerializerView(generics.ListCreateAPIView):
         serializer = FixOfferSerializer(fix_offer)
         return Response(serializer.data)
 
-
-class BaseOfferSerializerView(generics.ListCreateAPIView):
-    serializer_class = BaseOfferSerializer
+class MobileOfferTypeSerializerView(generics.ListCreateAPIView):
+    serializer_class = MobileOfferTypeSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        lucky_draw_system=self.request.data.get('lucky_draw_system')
-        return BaseOffer.objects.filter(lucky_draw_system=lucky_draw_system)
+        return MobileOfferType.objects.all()
     
     def create(self, request, *args, **kwargs):
-        lucky_draw_system = request.data.get('lucky_draw_system')
-        name=request.data.get('name')
-        image=request.data.get('image')
+        offer_type_name = request.data.get('offer_type_name')
+        condition = request.data.get('condition')
 
-        base_offer = BaseOffer.objects.create(
-            lucky_draw_system=lucky_draw_system,
-            name=name,
-            image=image
+        mobile_type = MobileOfferType.objects.create(
+            offer_type_name=offer_type_name,
+            condition=condition
         )
-        base_offer.save()
-        serializer = BaseOfferSerializer(base_offer)
+        mobile_type.save()
+        serializer = MobileOfferTypeSerializer(mobile_type)
         return Response(serializer.data)
-    
+
 class MobilePhoneOfferSerializerView(generics.ListCreateAPIView):
     serializer_class = MobilePhoneOfferSerializer
     permission_classes = [IsAuthenticated]
