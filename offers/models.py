@@ -100,16 +100,18 @@ class BaseOffer(models.Model):
     def is_valid_date(self):
         return self.start_date <= timezone.now().date() <= self.end_date
 
+class MobileOfferType(models.Model):
+    offer_type_name=models.CharField(max_length=100)
+    condition=models.CharField(max_length=100)
+
+    def __str__(self):
+        return f"{self.offer_type_name} (Condition: {self.condition})"
+
 class MobilePhoneOffer(BaseOffer):
-    VALID_CHOICES = [
-        ("V Series Offer", "V Series Offer"),
-        ("Y Series Offer", "Y Series Offer"),
-        ("All", "All"),
-    ]
 
     gift = models.ForeignKey(GiftItem, on_delete=models.CASCADE)
     per_day = models.PositiveIntegerField(default=0)
-    validto = models.CharField(max_length=20, choices=VALID_CHOICES, default="All")
+    validto = models.ForeignKey(MobileOfferType, on_delete=models.CASCADE,default='ALL')
     priority = models.PositiveIntegerField(default=0)
 
     def __str__(self):
