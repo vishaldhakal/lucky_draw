@@ -65,6 +65,63 @@ class LuckyDrawSystemSerializerView(generics.ListCreateAPIView):
         lucky_draw_system.save()
         serializer = LuckyDrawSystemSerializer(lucky_draw_system)
         return Response(serializer.data)
+class LuckyDrawSystemRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = LuckyDrawSystemSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return LuckyDrawSystem.objects.filter(organization=self.request.user.organization)
+
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+
+        # Get the data from the request
+        name = request.data.get('name')
+        description = request.data.get('description')
+        background_image = request.data.get('background_image')
+        hero_image = request.data.get('hero_image')
+        main_offer_stamp_image = request.data.get('main_offer_stamp_image')
+        qr = request.data.get('qr')
+        type = request.data.get('type')
+        start_date = request.data.get('start_date')
+        end_date = request.data.get('end_date')
+
+        # Update the instance fields if provided in the request
+        if name is not None:
+            instance.name = name
+        if description is not None:
+            instance.description = description
+        if background_image is not None:
+            instance.background_image = background_image
+        if hero_image is not None:
+            instance.hero_image = hero_image
+        if main_offer_stamp_image is not None:
+            instance.main_offer_stamp_image = main_offer_stamp_image
+        if qr is not None:
+            instance.qr = qr
+        if type is not None:
+            instance.type = type
+        if start_date is not None:
+            instance.start_date = start_date
+        if end_date is not None:
+            instance.end_date = end_date
+
+        # Save the updated instance
+        instance.save()
+
+        # Serialize and return the updated instance
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
+
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        self.perform_destroy(instance)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 class RechargeCardSerializerView(generics.ListCreateAPIView):
     serializer_class = RechargeCardSerializer
