@@ -45,4 +45,4 @@ class RechargeCardOfferSerializer(serializers.ModelSerializer):
 class CustomerSerializer(serializers.ModelSerializer):
     class Meta:
         model = Customer
-        fields = ['lucky_draw_system','customer_name','shop_name','sold_area','phone_number','phone_model','prize_details','imei','date_of_purchase','how_know_about_campaign','profession']
+        fields = ['lucky_draw_system','customer_name','shop_name','sold_area','phone_number','phone_model','imei','date_of_purchase','how_know_about_campaign','profession']

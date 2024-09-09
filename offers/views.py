@@ -147,7 +147,7 @@ class RechargeCardSerializerView(generics.ListCreateAPIView):
 
 class IMEINOSerializerView(generics.ListCreateAPIView):
     serializer_class = IMEINOSerializer
-    permission_classes = [IsAuthenticated]
+    # permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         lucky_draw_system=self.request.data.get('lucky_draw_system')
@@ -157,9 +157,10 @@ class IMEINOSerializerView(generics.ListCreateAPIView):
         lucky_draw_system = request.data.get('lucky_draw_system')
         imei_no=request.data.get('imei_no')
         phone_model=request.data.get('phone_model')
+        lucky_draw=LuckyDrawSystem.objects.get(id=lucky_draw_system)
 
         imeino = IMEINO.objects.create(
-            lucky_draw_system=lucky_draw_system,
+            lucky_draw_system=lucky_draw,
             imei_no=imei_no,
             phone_model=phone_model
         )
@@ -254,7 +255,7 @@ class RechargeCardOfferSerializerView(generics.ListCreateAPIView):
     
 class CustomerSerializerView(generics.ListCreateAPIView):
     serializer_class = CustomerSerializer
-    permission_classes = [IsAuthenticated]
+    # permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         lucky_draw_system=self.request.data.get('lucky_draw_system')
@@ -273,9 +274,12 @@ class CustomerSerializerView(generics.ListCreateAPIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        prize_details=request.data.get('prize_details')
+        
         imei=request.data.get('imei')
 
+        if not imei:
+            return Response({"error": "IMEI is required."}, status=status.HTTP_400_BAD_REQUEST)
+        print (imei)
         try:
             imei_obj = IMEINO.objects.get(imei_no=imei, used=False)
         except IMEINO.DoesNotExist:
@@ -304,19 +308,20 @@ class CustomerSerializerView(generics.ListCreateAPIView):
         sale_today.sales_count += 1
         sale_today.save()
 
+        lucky_draw=LuckyDrawSystem.objects.get(id=lucky_draw_system)
+
         customer = Customer.objects.create(
-            lucky_draw_system=lucky_draw_system,
+            lucky_draw_system=lucky_draw,
             customer_name=customer_name,
             shop_name=shop_name,
             sold_area=sold_area,
             phone_number=phone_number,
             phone_model=phone_model,
-            prize_details=prize_details,
             imei=imei,
             how_know_about_campaign=how_know_about_campaign,
             profession=profession
         )
-        customer.save()
+        # customer.save()
 
         self.assign_gift(customer, imei, phone_model, sale_today.sales_count, today_date, lucky_draw_system)
 
@@ -326,7 +331,7 @@ class CustomerSerializerView(generics.ListCreateAPIView):
     
     def assign_gift(self,customer,imei,phone_model,sales_count,today_date,lucky_draw_system):
         #Fixed Offers
-        fix_offer=FixOffer.objects.filter(lucky_draw_system=lucky_draw_system,quantiy__gt=0)
+        fix_offer=FixOffer.objects.filter(lucky_draw_system=lucky_draw_system,quantity__gt=0)
         for offer in fix_offer:
             if imei in offer.imei_no:
                 customer.gift = offer.gift
