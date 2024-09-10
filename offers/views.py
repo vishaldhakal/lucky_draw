@@ -3,33 +3,10 @@ from django.shortcuts import get_object_or_404
 from rest_framework import generics,status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from .serializers import GiftItemSerializer,LuckyDrawSystemSerializer,RechargeCardSerializer,IMEINOSerializer,FixOfferSerializer,MobileOfferConditionSerializer,MobilePhoneOfferSerializer,RechargeCardOfferSerializer,CustomerSerializer
-from .models import Sales,GiftItem,LuckyDrawSystem,RechargeCard,IMEINO,FixOffer,BaseOffer,MobilePhoneOffer,RechargeCardOffer,ElectronicsShopOffer,Customer,MobileOfferCondition
+from .serializers import GiftItemSerializer,LuckyDrawSystemSerializer,RechargeCardSerializer,IMEINOSerializer,FixOfferSerializer,MobileOfferConditionSerializer,MobilePhoneOfferSerializer,RechargeCardOfferSerializer,CustomerSerializer,ElectronicShopOfferConditionSerializer,ElectronicsShopOfferSerializer
+from .models import Sales,GiftItem,LuckyDrawSystem,RechargeCard,IMEINO,FixOffer,MobilePhoneOffer,RechargeCardOffer,ElectronicsShopOffer,Customer,MobileOfferCondition,ElectronicOfferCondition,BaseOffer
 
 # Create your views here.
-
-class GiftItemSerializerView(generics.ListCreateAPIView):
-
-    queryset = GiftItem.objects.all()
-    serializer_class = GiftItemSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        return GiftItem.objects.filter(organization=self.request.user.organization)
-
-    def create(self, request, *args, **kwargs):
-        lucky_draw_system = request.data.get('lucky_draw_system')
-        name=request.data.get('name')
-        image=request.data.get('image')
-
-        gift_item = GiftItem.objects.create(
-            lucky_draw_system=lucky_draw_system,
-            name=name,
-            image=image
-        )
-        gift_item.save()
-        serializer = GiftItemSerializer(gift_item)
-        return Response(serializer.data)
 
 class LuckyDrawSystemSerializerView(generics.ListCreateAPIView):    
     serializer_class = LuckyDrawSystemSerializer
@@ -62,6 +39,7 @@ class LuckyDrawSystemSerializerView(generics.ListCreateAPIView):
             start_date=start_date,
             end_date=end_date
         )
+
         lucky_draw_system.save()
         serializer = LuckyDrawSystemSerializer(lucky_draw_system)
         return Response(serializer.data)
@@ -76,7 +54,7 @@ class LuckyDrawSystemRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPI
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
 
-        # Get the data from the request
+        
         name = request.data.get('name')
         description = request.data.get('description')
         background_image = request.data.get('background_image')
@@ -124,6 +102,74 @@ class LuckyDrawSystemRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPI
         self.perform_destroy(instance)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+class GiftItemSerializerView(generics.ListCreateAPIView):
+
+    queryset = GiftItem.objects.all()
+    serializer_class = GiftItemSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return GiftItem.objects.filter(organization=self.request.user.organization)
+
+    def create(self, request, *args, **kwargs):
+        lucky_draw_system = request.data.get('lucky_draw_system')
+        name=request.data.get('name')
+        image=request.data.get('image')
+
+        gift_item = GiftItem.objects.create(
+            lucky_draw_system=lucky_draw_system,
+            name=name,
+            image=image
+        )
+
+        gift_item.save()
+        serializer = GiftItemSerializer(gift_item)
+        return Response(serializer.data)
+
+class GiftItemRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = GiftItem.objects.all()
+    serializer_class = GiftItemSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return GiftItem.objects.filter(lucky_draw_system__organization=self.request.user.organization)
+
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
+
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+
+        # Get the data from the request
+        name = request.data.get('name')
+        image = request.data.get('image')
+        lucky_draw_system = request.data.get('lucky_draw_system')
+
+        # Update the instance fields if provided in the request
+        if name is not None:
+            instance.name = name
+        if image is not None:
+            instance.image = image
+        if lucky_draw_system is not None:
+            instance.lucky_draw_system_id = lucky_draw_system
+
+        # Save the updated instance
+        instance.save()
+
+        # Serialize and return the updated instance
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        self.perform_destroy(instance)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    def perform_destroy(self, instance):
+        instance.delete()
+
 class RechargeCardSerializerView(generics.ListCreateAPIView):
     serializer_class = RechargeCardSerializer
     permission_classes = [IsAuthenticated]
@@ -134,17 +180,56 @@ class RechargeCardSerializerView(generics.ListCreateAPIView):
     
     def create(self, request, *args, **kwargs):
         lucky_draw_system = request.data.get('lucky_draw_system')
-        name=request.data.get('name')
-        image=request.data.get('image')
+        cardno=request.data.get('cardno')
+        provider=request.data.get('provider')
+        amount=request.data.get('amount')
+        is_assigned=request.data.get('is_assigned')
 
         recharge_card = RechargeCard.objects.create(
             lucky_draw_system=lucky_draw_system,
-            name=name,
-            image=image
+            cardno=cardno,
+            provider=provider,
+            amount=amount,
+            is_assigned=is_assigned
         )
         recharge_card.save()
         serializer = RechargeCardSerializer(recharge_card)
         return Response(serializer.data)
+
+class RechargeCardRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = RechargeCardSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return RechargeCard.objects.filter(lucky_draw_system__organization=self.request.user.organization)
+
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        lucky_draw_system = request.data.get('lucky_draw_system')
+        cardno = request.data.get('cardno')
+        provider = request.data.get('provider')
+        amount = request.data.get('amount')
+        is_assigned = request.data.get('is_assigned')
+
+        if lucky_draw_system is not None:
+            instance.lucky_draw_system_id = lucky_draw_system
+        if cardno is not None:
+            instance.cardno = cardno
+        if provider is not None:
+            instance.provider = provider
+        if amount is not None:
+            instance.amount = amount
+        if is_assigned is not None:
+            instance.is_assigned = is_assigned
+
+        instance.save()
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        instance.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 class IMEINOSerializerView(generics.ListCreateAPIView):
     serializer_class = IMEINOSerializer
@@ -169,6 +254,36 @@ class IMEINOSerializerView(generics.ListCreateAPIView):
         serializer = IMEINOSerializer(imeino)
         return Response(serializer.data)
 
+class IMEINORetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = IMEINOSerializer
+    # permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return IMEINO.objects.all()
+
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        lucky_draw_system = request.data.get('lucky_draw_system')
+        imei_no = request.data.get('imei_no')
+        phone_model = request.data.get('phone_model')
+        
+        if lucky_draw_system is not None:
+            lucky_draw = LuckyDrawSystem.objects.get(id=lucky_draw_system)
+            instance.lucky_draw_system = lucky_draw
+        if imei_no is not None:
+            instance.imei_no = imei_no
+        if phone_model is not None:
+            instance.phone_model = phone_model
+
+        instance.save()
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        instance.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
 class FixOfferSerializerView(generics.ListCreateAPIView):
     serializer_class = FixOfferSerializer
     permission_classes = [IsAuthenticated]
@@ -181,15 +296,49 @@ class FixOfferSerializerView(generics.ListCreateAPIView):
         lucky_draw_system = request.data.get('lucky_draw_system')
         imei_no=request.data.get('imei_no')
         quantity=request.data.get('quantity')
+        gift=request.data.get('gift')
 
         fix_offer = FixOffer.objects.create(
             lucky_draw_system=lucky_draw_system,
             imei_no=imei_no,
-            quantity=quantity
+            quantity=quantity,
+            gift=gift
         )
         fix_offer.save()
         serializer = FixOfferSerializer(fix_offer)
         return Response(serializer.data)
+
+class FixOfferRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = FixOfferSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return FixOffer.objects.filter(lucky_draw_system__organization=self.request.user.organization)
+
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        lucky_draw_system = request.data.get('lucky_draw_system')
+        imei_no = request.data.get('imei_no')
+        quantity = request.data.get('quantity')
+        gift = request.data.get('gift')
+
+        if lucky_draw_system is not None:
+            instance.lucky_draw_system_id = lucky_draw_system
+        if imei_no is not None:
+            instance.imei_no = imei_no
+        if quantity is not None:
+            instance.quantity = quantity
+        if gift is not None:
+            instance.gift_id = gift
+
+        instance.save()
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        instance.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 class MobileOfferConditionSerializerView(generics.ListCreateAPIView):
     serializer_class = MobileOfferConditionSerializer
@@ -199,16 +348,46 @@ class MobileOfferConditionSerializerView(generics.ListCreateAPIView):
         return MobileOfferCondition.objects.all()
     
     def create(self, request, *args, **kwargs):
-        offer_type_name = request.data.get('offer_type_name')
+        offer_condition_name = request.data.get('offer_condition_name')
         condition = request.data.get('condition')
 
         mobile_type = MobileOfferCondition.objects.create(
-            offer_type_name=offer_type_name,
+            offer_type_name=offer_condition_name,
             condition=condition
         )
         mobile_type.save()
         serializer = MobileOfferConditionSerializer(mobile_type)
         return Response(serializer.data)
+
+class MobileOfferConditionRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = MobileOfferCondition.objects.all()
+    serializer_class = MobileOfferConditionSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        return MobileOfferCondition.objects.all()
+
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
+
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        offer_type_name = request.data.get('offer_type_name', instance.offer_type_name)
+        condition = request.data.get('condition', instance.condition)
+        
+        instance.offer_type_name = offer_type_name
+        instance.condition = condition
+        instance.save()
+
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        self.perform_destroy(instance)
+        return Response({"message": "Mobile offer condition deleted successfully"})
 
 class MobilePhoneOfferSerializerView(generics.ListCreateAPIView):
     serializer_class = MobilePhoneOfferSerializer
@@ -219,20 +398,73 @@ class MobilePhoneOfferSerializerView(generics.ListCreateAPIView):
         return MobilePhoneOffer.objects.filter(gift=gift)
     
     def create(self, request, *args, **kwargs):
+        lucky_draw_system = request.data.get('lucky_draw_system')
+        start_date = request.data.get('start_date')
+        end_date = request.data.get('end_date')
+        daily_quantity = request.data.get('daily_quantity')
+        type_of_offer = request.data.get('type_of_offer')
+        offer_condition_value = request.data.get('offer_condition_value')
+        sale_numbers = request.data.get('sale_numbers')
+
         gift = request.data.get('gift')
-        per_day=request.data.get('per_day')
-        validto=request.data.get('validto')
         priority=request.data.get('priority')
 
         mobile_phone_offer = MobilePhoneOffer.objects.create(
+            lucky_draw_system=lucky_draw_system,
+            start_date=start_date,
+            end_date=end_date,
+            daily_quantity=daily_quantity,
+            type_of_offer=type_of_offer,
+            offer_condition_value=offer_condition_value,
+            sale_numbers=sale_numbers,
             gift=gift,
-            per_day=per_day,
-            validto=validto,
             priority=priority
         )
+        valid_conditions = request.data.get('valid_condition', [])
+        mobile_phone_offer.valid_condition.set(valid_conditions)
+
         mobile_phone_offer.save()
         serializer = MobilePhoneOfferSerializer(mobile_phone_offer)
         return Response(serializer.data)
+
+class MobilePhoneOfferRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = MobilePhoneOffer.objects.all()
+    serializer_class = MobilePhoneOfferSerializer
+    permission_classes = [IsAuthenticated]
+
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
+
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+
+        # Get updated data or default to the existing instance values
+        instance.lucky_draw_system = request.data.get('lucky_draw_system', instance.lucky_draw_system)
+        instance.start_date = request.data.get('start_date', instance.start_date)
+        instance.end_date = request.data.get('end_date', instance.end_date)
+        instance.daily_quantity = request.data.get('daily_quantity', instance.daily_quantity)
+        instance.type_of_offer = request.data.get('type_of_offer', instance.type_of_offer)
+        instance.offer_condition_value = request.data.get('offer_condition_value', instance.offer_condition_value)
+        instance.sale_numbers = request.data.get('sale_numbers', instance.sale_numbers)
+        instance.gift = request.data.get('gift', instance.gift)
+        instance.priority = request.data.get('priority', instance.priority)
+
+        # Handling many-to-many field (valid_condition)
+        valid_conditions = request.data.get('valid_condition', [])
+        if valid_conditions:
+            instance.valid_condition.set(valid_conditions)
+
+        instance.save()
+
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        self.perform_destroy(instance)
+        return Response({"message": "Mobile phone offer deleted successfully"})
 
 class RechargeCardOfferSerializerView(generics.ListCreateAPIView):
     serializer_class = RechargeCardOfferSerializer
@@ -243,17 +475,199 @@ class RechargeCardOfferSerializerView(generics.ListCreateAPIView):
         return RechargeCardOffer.objects.filter(RechargeCard=recharge_card)
     
     def create(self, request, *args, **kwargs):
+        lucky_draw_system = request.data.get('lucky_draw_system')
+        start_date = request.data.get('start_date')
+        end_date = request.data.get('end_date')
+        daily_quantity = request.data.get('daily_quantity')
+        type_of_offer = request.data.get('type_of_offer')
+        offer_condition_value = request.data.get('offer_condition_value')
+        sale_numbers = request.data.get('sale_numbers')
+
         amount = request.data.get('amount')
         provider=request.data.get('provider')
 
         recharge_card_offer = RechargeCardOffer.objects.create(
+            lucky_draw_system=lucky_draw_system,
+            start_date=start_date,
+            end_date=end_date,
+            daily_quantity=daily_quantity,
+            type_of_offer=type_of_offer,
+            offer_condition_value=offer_condition_value,
+            sale_numbers=sale_numbers,
             amount=amount,
             provider=provider
         )
+        valid_conditions = request.data.get('valid_condition', [])
+        recharge_card_offer.valid_condition.set(valid_conditions)
+
         recharge_card_offer.save()
         serializer = RechargeCardOfferSerializer(recharge_card_offer)
         return Response(serializer.data)
-    
+
+class RechargeCardOfferRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = RechargeCardOffer.objects.all()
+    serializer_class = RechargeCardOfferSerializer
+    permission_classes = [IsAuthenticated]
+
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
+
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+
+        # Get updated data or default to existing values
+        instance.lucky_draw_system = request.data.get('lucky_draw_system', instance.lucky_draw_system)
+        instance.start_date = request.data.get('start_date', instance.start_date)
+        instance.end_date = request.data.get('end_date', instance.end_date)
+        instance.daily_quantity = request.data.get('daily_quantity', instance.daily_quantity)
+        instance.type_of_offer = request.data.get('type_of_offer', instance.type_of_offer)
+        instance.offer_condition_value = request.data.get('offer_condition_value', instance.offer_condition_value)
+        instance.sale_numbers = request.data.get('sale_numbers', instance.sale_numbers)
+        instance.amount = request.data.get('amount', instance.amount)
+        instance.provider = request.data.get('provider', instance.provider)
+
+        # Handling many-to-many field (valid_condition)
+        valid_conditions = request.data.get('valid_condition', [])
+        if valid_conditions:
+            instance.valid_condition.set(valid_conditions)
+
+        instance.save()
+
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        self.perform_destroy(instance)
+        return Response({"message": "Recharge card offer deleted successfully"})
+
+class ElectronicOfferConditionListCreateView(generics.ListCreateAPIView):
+    serializer_class = ElectronicShopOfferConditionSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return ElectronicOfferCondition.objects.all()
+
+    def create(self, request, *args, **kwargs):
+        offer_condition_name = request.data.get('offer_condition_name')
+        condition = request.data.get('condition')
+
+        electronic_offer_condition = ElectronicOfferCondition.objects.create(
+            offer_condition_name=offer_condition_name,
+            condition=condition
+        )
+        electronic_offer_condition.save()
+        
+        serializer = self.get_serializer(electronic_offer_condition)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)   
+
+class ElectronicOfferConditionRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = ElectronicOfferCondition.objects.all()
+    serializer_class = ElectronicShopOfferConditionSerializer
+    permission_classes = [IsAuthenticated]
+
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
+
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        offer_condition_name = request.data.get('offer_condition_name', instance.offer_condition_name)
+        condition = request.data.get('condition', instance.condition)
+
+        instance.offer_condition_name = offer_condition_name
+        instance.condition = condition
+        instance.save()
+
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        self.perform_destroy(instance)
+        return Response({"message": "Electronic offer condition deleted successfully"}, status=status.HTTP_204_NO_CONTENT)
+
+class ElectronicsShopOfferListCreateView(generics.ListCreateAPIView):
+    serializer_class = ElectronicsShopOfferSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return ElectronicsShopOffer.objects.filter(lucky_draw_system__organization=self.request.user.organization)
+
+    def create(self, request, *args, **kwargs):
+        lucky_draw_system_id = request.data.get('lucky_draw_system')
+        start_date = request.data.get('start_date')
+        end_date = request.data.get('end_date')
+        daily_quantity = request.data.get('daily_quantity')
+        type_of_offer = request.data.get('type_of_offer')
+        offer_condition_value = request.data.get('offer_condition_value')
+        sale_numbers = request.data.get('sale_numbers')
+       
+        
+        lucky_draw_system=LuckyDrawSystem.objects.get(id=lucky_draw_system_id)
+
+
+        electronics_shop_offer = ElectronicsShopOffer.objects.create(
+            lucky_draw_system=lucky_draw_system,
+            start_date=start_date,
+            end_date=end_date,
+            daily_quantity=daily_quantity,
+            type_of_offer=type_of_offer,
+            offer_condition_value=offer_condition_value,
+            sale_numbers=sale_numbers,
+        )
+
+        # Handle many-to-many relationship for valid_condition
+        valid_conditions = request.data.get('valid_condition', [])
+        electronics_shop_offer.valid_condition.set(valid_conditions)
+
+        electronics_shop_offer.save()
+        
+        serializer = self.get_serializer(electronics_shop_offer)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+  
+class ElectronicsShopOfferRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = ElectronicsShopOffer.objects.all()
+    serializer_class = ElectronicsShopOfferSerializer
+    permission_classes = [IsAuthenticated]
+
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
+
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        
+        # Updating the instance fields with provided data or using existing values
+        lucky_draw_system_id = request.data.get('lucky_draw_system', instance.lucky_draw_system.id)
+        instance.lucky_draw_system = LuckyDrawSystem.objects.get(id=lucky_draw_system_id)
+        
+        instance.start_date = request.data.get('start_date', instance.start_date)
+        instance.end_date = request.data.get('end_date', instance.end_date)
+        instance.daily_quantity = request.data.get('daily_quantity', instance.daily_quantity)
+        instance.type_of_offer = request.data.get('type_of_offer', instance.type_of_offer)
+        instance.offer_condition_value = request.data.get('offer_condition_value', instance.offer_condition_value)
+        instance.sale_numbers = request.data.get('sale_numbers', instance.sale_numbers)
+
+        # Handling many-to-many relationship for valid_condition
+        valid_conditions = request.data.get('valid_condition', [])
+        if valid_conditions:
+            instance.valid_condition.set(valid_conditions)
+
+        instance.save()
+
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        self.perform_destroy(instance)
+        return Response({"message": "Electronics shop offer deleted successfully"}, status=status.HTTP_204_NO_CONTENT)
+
 class CustomerSerializerView(generics.ListCreateAPIView):
     serializer_class = CustomerSerializer
     # permission_classes = [IsAuthenticated]

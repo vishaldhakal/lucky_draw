@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import GiftItem,LuckyDrawSystem,RechargeCard,IMEINO,FixOffer,MobileOfferCondition,MobilePhoneOffer,RechargeCardOffer,ElectronicsShopOffer,Customer
+from .models import GiftItem,LuckyDrawSystem,RechargeCard,IMEINO,FixOffer,MobileOfferCondition,MobilePhoneOffer,RechargeCardOffer,ElectronicsShopOffer,Customer,RechargeCardCondition,ElectronicOfferCondition
 
 class GiftItemSerializer(serializers.ModelSerializer):
     class Meta:
@@ -15,7 +15,7 @@ class LuckyDrawSystemSerializer(serializers.ModelSerializer):
 class RechargeCardSerializer(serializers.ModelSerializer):
     class Meta:
         model = RechargeCard
-        fields = ['lucky_draw_system','cardno','provider','amount']
+        fields = ['lucky_draw_system','cardno','provider','amount','is_assigned']
 
 class IMEINOSerializer(serializers.ModelSerializer):
     class Meta:
@@ -40,6 +40,21 @@ class MobilePhoneOfferSerializer(serializers.ModelSerializer):
 class RechargeCardOfferSerializer(serializers.ModelSerializer):
     class Meta:
         model = RechargeCardOffer
+        fields = '__all__'
+
+class RechargeCardConditionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RechargeCardCondition
+        fields = '__all__'
+
+class ElectronicShopOfferConditionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ElectronicOfferCondition
+        fields = '__all__'
+
+class ElectronicsShopOfferSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ElectronicsShopOffer
         fields = '__all__'
 
 class CustomerSerializer(serializers.ModelSerializer):
