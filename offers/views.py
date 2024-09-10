@@ -274,8 +274,7 @@ class CustomerSerializerView(generics.ListCreateAPIView):
                 {"error": "A customer with this phone number already exists."},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
-        
+           
         imei=request.data.get('imei')
 
         if not imei:
@@ -317,7 +316,6 @@ class CustomerSerializerView(generics.ListCreateAPIView):
             how_know_about_campaign=how_know_about_campaign,
             profession=profession
         )
-        # customer.save()
 
         self.assign_gift(customer)
       
@@ -325,65 +323,70 @@ class CustomerSerializerView(generics.ListCreateAPIView):
         return Response(serializer.data, status=status.HTTP_201_CREATED)
     
     def assign_gift(self,customer):
-        today=timezone.now().date()
+        today_date=timezone.now().date()
         lucky_draw_system=customer.lucky_draw_system
 
         sales_today,created = Sales.objects.get_or_create(
-            date=today,
+            date=today_date,
             lucky_draw_system=lucky_draw_system,
             defaults={
                 'sales_count':0
             }
         )
+        sales_today.sales_count += 1
+        sales_today.save()
+
+        sales_count = sales_today.sales_count
+        phone_model = customer.phone_model
         
         #Fixed Offers
-        fix_offer=FixOffer.objects.filter(lucky_draw_system=lucky_draw_system,quantity__gt=0)
-        for offer in fix_offer:
-            if imei in offer.imei_no:
-                customer.gift = offer.gift
-                customer.prize_details = f"Congartulations! You've won {offer.gift.name}"
-                customer.save()
-                offer.quantity -= 1
-                offer.save()
-                return
+        fixed_offer = FixOffer.objects.filter(
+            lucky_draw_system=lucky_draw_system,
+            imei_no=customer.imei,
+            quantity__gt=0
+        ).first()
+
+        if fixed_offer:
+            customer.gift = fixed_offer.gift
+            customer.prize_details = f"Congratulations! You've won {fixed_offer.gift.name}"
+            customer.save()
+            fixed_offer.quantity -= 1
+            fixed_offer.save()
+            return
         
-        #Mobile Phone Offers
+            # Check Mobile Phone Offers
         mobile_offers = MobilePhoneOffer.objects.filter(
             lucky_draw_system=lucky_draw_system,
             start_date__lte=today_date,
-            end_date__gte=today_date
+            end_date__gte=today_date,
+            quantity__gt=0
         ).order_by('priority')
 
         for offer in mobile_offers:
-            condition_met = False
-            if offer.type_of_offer == "After every certain sale":
-                condition_met = sales_count % int(offer.offer_condition_value) == 0
-            elif offer.type_of_offer == "At certain sale position":
-                condition_met = sales_count == int(offer.offer_condition_value)
-            elif offer.type_of_offer in ["Weekly Offer", "Monthly Offer"]:
-                condition_met = True
+            condition_met = self.check_offer_condition(offer, sales_count)
+            validto_check = self.check_validto_condition(offer, phone_model)
 
-            validto_check = offer.validto.condition == "All" or phone_model.startswith(offer.validto.condition)
-
-            if condition_met and validto_check and offer.quantity > 0:
+            if condition_met and validto_check:
                 customer.gift = offer.gift
                 customer.prize_details = f"Congratulations! You've won {offer.gift.name}"
                 customer.save()
                 offer.quantity -= 1
                 offer.save()
                 return
-        
-        #Recharge Card Offers
+
+        # Check Recharge Card Offers
         recharge_offers = RechargeCardOffer.objects.filter(
             lucky_draw_system=lucky_draw_system,
             start_date__lte=today_date,
-            end_date__gte=today_date
+            end_date__gte=today_date,
+            quantity__gt=0
         )
+
         for offer in recharge_offers:
-            if ((offer.type_of_offer == "After every certain sale" and sales_count % int(offer.offer_condition_value) == 0) or
-                (offer.type_of_offer == "At certain sale position" and sales_count == int(offer.offer_condition_value)) or
-                offer.type_of_offer in ["Weekly Offer", "Monthly Offer"]) and offer.quantity > 0:
-                
+            condition_met = self.check_offer_condition(offer, sales_count)
+            validto_check = self.check_validto_condition(offer, phone_model)
+
+            if condition_met and validto_check:
                 recharge_card = RechargeCard.objects.filter(
                     lucky_draw_system=lucky_draw_system,
                     provider=offer.provider,
@@ -392,8 +395,8 @@ class CustomerSerializerView(generics.ListCreateAPIView):
                 ).first()
 
                 if recharge_card:
-                    customer.recharge_card=recharge_card
-                    customer.amount_of_card=offer.amount
+                    customer.recharge_card = recharge_card
+                    customer.amount_of_card = offer.amount
                     customer.prize_details = f"Congratulations! You've won {offer.provider} recharge card worth {offer.amount}"
                     customer.save()
                     recharge_card.is_assigned = True
@@ -401,12 +404,40 @@ class CustomerSerializerView(generics.ListCreateAPIView):
                     offer.quantity -= 1
                     offer.save()
                     return
+
+        # Check Electronic Shop Offers
+        electronic_offers = ElectronicsShopOffer.objects.filter(
+            lucky_draw_system=lucky_draw_system,
+            start_date__lte=today_date,
+            end_date__gte=today_date,
+            quantity__gt=0
+        )
+
+        for offer in electronic_offers:
+            condition_met = self.check_offer_condition(offer, sales_count)
+            validto_check = self.check_validto_condition(offer, phone_model)
+
+            if condition_met and validto_check:
+                customer.gift = offer.gift
+                customer.prize_details = f"Congratulations! You've won {offer.gift.name} from our Electronics Shop Offer!"
+                customer.save()
+                offer.quantity -= 1
+                offer.save()
+                return
+
+        # If no gift assigned
         customer.prize_details = "Thank you for your purchase!"
         customer.save()
 
-                
+    def check_offer_condition(self, offer, sales_count):
+        if offer.type_of_offer == "After every certain sale":
+            return sales_count % int(offer.offer_condition_value) == 0
+        elif offer.type_of_offer == "At certain sale position":
+            return str(sales_count) in offer.sale_numbers
+        return False  # If the offer type doesn't match any condition, it's not applicable
 
-
-
-
-
+    def check_validto_condition(self, offer, phone_model):
+        if hasattr(offer, 'valid_condition'):
+            conditions = offer.valid_condition.all()
+            return not conditions or any(phone_model.startswith(cond.condition) for cond in conditions)
+        return True  # If there's no valid_condition, assume it's valid for all

@@ -11,4 +11,8 @@ admin.site.register(FixOffer, ModelAdmin)
 admin.site.register(MobilePhoneOffer, ModelAdmin)
 admin.site.register(IMEINO, ModelAdmin)
 admin.site.register(Customer, ModelAdmin)
+admin.site.register(MobileOfferCondition, ModelAdmin)
+admin.site.register(RechargeCardCondition, ModelAdmin)
+admin.site.register(ElectronicOfferCondition, ModelAdmin)
+
 

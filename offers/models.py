@@ -7,6 +7,7 @@ class Sales(models.Model):
     sales_count = models.IntegerField(default=0)
     date = models.DateField(
         auto_now=False, auto_created=False, auto_now_add=False)
+    lucky_draw_system= models.ForeignKey('LuckyDrawSystem', on_delete=models.CASCADE, related_name='sales')
 
     def __str__(self):
         return str(self.sales_count)
@@ -30,7 +31,6 @@ class LuckyDrawSystem(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     start_date = models.DateTimeField()
     end_date = models.DateTimeField()
-    sales=models.ForeignKey(Sales, on_delete=models.CASCADE, related_name='lucky_draw_systems')
 
     def __str__(self):
         return self.name
@@ -84,11 +84,6 @@ class BaseOffer(models.Model):
         ("At certain sale position", "At certain sale position")
     ]
 
-    VALID_TO=[
-        ('All', 'All'),
-        ('CONDITIONAL', 'CONDITIONAL'),
-    ]
-
     lucky_draw_system = models.ForeignKey(LuckyDrawSystem, on_delete=models.CASCADE)
     start_date = models.DateField()
     end_date = models.DateField()
@@ -96,7 +91,6 @@ class BaseOffer(models.Model):
     type_of_offer = models.CharField(max_length=30, choices=OFFER_CHOICES)
     offer_condition_value = models.CharField(max_length=500, blank=True)
     sale_numbers = models.JSONField(null=True, blank=True)
-    valid_to=models.CharField(max_length=20, choices=VALID_TO, default='All')
 
     class Meta:
         abstract = True
@@ -112,9 +106,7 @@ class MobileOfferCondition(models.Model):
         return f"{self.offer_type_name} (Condition: {self.condition})"
 
 class MobilePhoneOffer(BaseOffer):
-
     gift = models.ForeignKey(GiftItem, on_delete=models.CASCADE)
-    per_day = models.PositiveIntegerField(default=0)
     valid_condition = models.ManyToManyField(MobileOfferCondition, blank=True)
     priority = models.PositiveIntegerField(default=0)
 
@@ -151,6 +143,7 @@ class ElectronicOfferCondition(models.Model):
         return f"{self.offer_type_name} (Condition: {self.condition})"
 
 class ElectronicsShopOffer(BaseOffer):
+    gift=models.ForeignKey(GiftItem, on_delete=models.CASCADE)
     valid_condition=models.ManyToManyField(ElectronicOfferCondition,blank=True)
     def __str__(self):
         return f"Offer on Electronics Shop [ {self.quantity} ]"
