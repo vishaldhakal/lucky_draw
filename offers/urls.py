@@ -19,7 +19,7 @@ urlpatterns = [
     path('fix-offers/', views.FixOfferSerializerView.as_view(), name='fix-offer-list-create'),
 
     # MobileOfferType URLs
-    path('mobile-offer-types/', views.MobileOfferTypeSerializerView.as_view(), name='mobile-offer-type-list-create'),
+    path('mobile-offer-types/', views.MobileOfferConditionSerializerView.as_view(), name='mobile-offer-type-list-create'),
 
     # MobilePhoneOffer URLs
     path('mobile-phone-offers/', views.MobilePhoneOfferSerializerView.as_view(), name='mobile-phone-offer-list-create'),

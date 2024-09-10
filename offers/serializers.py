@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import GiftItem,LuckyDrawSystem,RechargeCard,IMEINO,FixOffer,MobileOfferType,MobilePhoneOffer,RechargeCardOffer,ElectronicsShopOffer,Customer
+from .models import GiftItem,LuckyDrawSystem,RechargeCard,IMEINO,FixOffer,MobileOfferCondition,MobilePhoneOffer,RechargeCardOffer,ElectronicsShopOffer,Customer
 
 class GiftItemSerializer(serializers.ModelSerializer):
     class Meta:
@@ -27,9 +27,9 @@ class FixOfferSerializer(serializers.ModelSerializer):
         model = FixOffer
         fields = ['lucky_draw_system','imei_no','quantity','gift']
 
-class MobileOfferTypeSerializer(serializers.ModelSerializer):
+class MobileOfferConditionSerializer(serializers.ModelSerializer):
     class Meta:
-        model = MobileOfferType
+        model = MobileOfferCondition
         fields = '__all__'
 
 class MobilePhoneOfferSerializer(serializers.ModelSerializer):

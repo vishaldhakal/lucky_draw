@@ -3,8 +3,8 @@ from django.shortcuts import get_object_or_404
 from rest_framework import generics,status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from .serializers import GiftItemSerializer,LuckyDrawSystemSerializer,RechargeCardSerializer,IMEINOSerializer,FixOfferSerializer,MobileOfferTypeSerializer,MobilePhoneOfferSerializer,RechargeCardOfferSerializer,CustomerSerializer
-from .models import Sales,GiftItem,LuckyDrawSystem,RechargeCard,IMEINO,FixOffer,BaseOffer,MobilePhoneOffer,RechargeCardOffer,ElectronicsShopOffer,Customer,MobileOfferType
+from .serializers import GiftItemSerializer,LuckyDrawSystemSerializer,RechargeCardSerializer,IMEINOSerializer,FixOfferSerializer,MobileOfferConditionSerializer,MobilePhoneOfferSerializer,RechargeCardOfferSerializer,CustomerSerializer
+from .models import Sales,GiftItem,LuckyDrawSystem,RechargeCard,IMEINO,FixOffer,BaseOffer,MobilePhoneOffer,RechargeCardOffer,ElectronicsShopOffer,Customer,MobileOfferCondition
 
 # Create your views here.
 
@@ -191,23 +191,23 @@ class FixOfferSerializerView(generics.ListCreateAPIView):
         serializer = FixOfferSerializer(fix_offer)
         return Response(serializer.data)
 
-class MobileOfferTypeSerializerView(generics.ListCreateAPIView):
-    serializer_class = MobileOfferTypeSerializer
+class MobileOfferConditionSerializerView(generics.ListCreateAPIView):
+    serializer_class = MobileOfferConditionSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return MobileOfferType.objects.all()
+        return MobileOfferCondition.objects.all()
     
     def create(self, request, *args, **kwargs):
         offer_type_name = request.data.get('offer_type_name')
         condition = request.data.get('condition')
 
-        mobile_type = MobileOfferType.objects.create(
+        mobile_type = MobileOfferCondition.objects.create(
             offer_type_name=offer_type_name,
             condition=condition
         )
         mobile_type.save()
-        serializer = MobileOfferTypeSerializer(mobile_type)
+        serializer = MobileOfferConditionSerializer(mobile_type)
         return Response(serializer.data)
 
 class MobilePhoneOfferSerializerView(generics.ListCreateAPIView):
