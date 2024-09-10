@@ -109,7 +109,7 @@ class GiftItemSerializerView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return GiftItem.objects.filter(organization=self.request.user.organization)
+        return GiftItem.objects.filter(lucky_draw_system__organization=self.request.user.organization)
 
     def create(self, request, *args, **kwargs):
         lucky_draw_system = request.data.get('lucky_draw_system')
@@ -129,7 +129,7 @@ class GiftItemSerializerView(generics.ListCreateAPIView):
 class GiftItemRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     queryset = GiftItem.objects.all()
     serializer_class = GiftItemSerializer
-    permission_classes = [IsAuthenticated]
+    # permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         return GiftItem.objects.filter(lucky_draw_system__organization=self.request.user.organization)
@@ -175,8 +175,8 @@ class RechargeCardSerializerView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        lucky_draw_system=self.request.data.get('lucky_draw_system')
-        return RechargeCard.objects.filter(lucky_draw_system=lucky_draw_system)
+       
+        return RechargeCard.objects.filter(lucky_draw_system__organization=self.request.user.organization)
     
     def create(self, request, *args, **kwargs):
         lucky_draw_system = request.data.get('lucky_draw_system')
@@ -236,8 +236,8 @@ class IMEINOSerializerView(generics.ListCreateAPIView):
     # permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        lucky_draw_system=self.request.data.get('lucky_draw_system')
-        return IMEINO.objects.filter(lucky_draw_system=lucky_draw_system)
+
+        return IMEINO.objects.filter(lucky_draw_system__organization=self.request.user.organization)
     
     def create(self, request, *args, **kwargs):
         lucky_draw_system = request.data.get('lucky_draw_system')
@@ -259,7 +259,7 @@ class IMEINORetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     # permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        return IMEINO.objects.all()
+        return IMEINO.objects.filter(lucky_draw_system__organization=self.request.user.organization)
 
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -289,8 +289,8 @@ class FixOfferSerializerView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        lucky_draw_system=self.request.data.get('lucky_draw_system')
-        return FixOffer.objects.filter(lucky_draw_system=lucky_draw_system)
+
+        return FixOffer.objects.filter(lucky_draw_system__organization=self.request.user.organization)
     
     def create(self, request, *args, **kwargs):
         lucky_draw_system = request.data.get('lucky_draw_system')
@@ -394,8 +394,8 @@ class MobilePhoneOfferSerializerView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        gift=self.request.data.get('gift')
-        return MobilePhoneOffer.objects.filter(gift=gift)
+       
+        return MobilePhoneOffer.objects.filter(lucky_draw_system__organization=self.request.user.organization)
     
     def create(self, request, *args, **kwargs):
         lucky_draw_system = request.data.get('lucky_draw_system')
@@ -471,8 +471,8 @@ class RechargeCardOfferSerializerView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        recharge_card=self.request.data.get('recharge_card')
-        return RechargeCardOffer.objects.filter(RechargeCard=recharge_card)
+    
+        return RechargeCardOffer.objects.filter(lucky_draw_system__organization=self.request.user.organization)
     
     def create(self, request, *args, **kwargs):
         lucky_draw_system = request.data.get('lucky_draw_system')
@@ -548,7 +548,7 @@ class ElectronicOfferConditionListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return ElectronicOfferCondition.objects.all()
+        return ElectronicOfferCondition.objects.filter(lucky_draw_system__organization=self.request.user.organization)
 
     def create(self, request, *args, **kwargs):
         offer_condition_name = request.data.get('offer_condition_name')
@@ -673,8 +673,8 @@ class CustomerSerializerView(generics.ListCreateAPIView):
     # permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        lucky_draw_system=self.request.data.get('lucky_draw_system')
-        return Customer.objects.filter(lucky_draw_system=lucky_draw_system)
+
+        return Customer.objects.filter(lucky_draw_system__organization=self.request.user.organization)
     
     def create(self, request, *args, **kwargs):
 
