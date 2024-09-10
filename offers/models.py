@@ -1,7 +1,6 @@
 from django.db import models
 from account.models import Organization
 from django.core.validators import MinValueValidator, MaxValueValidator
-import datetime
 from django.utils import timezone
 
 class Sales(models.Model):
@@ -31,6 +30,7 @@ class LuckyDrawSystem(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     start_date = models.DateTimeField()
     end_date = models.DateTimeField()
+    sales=models.ForeignKey(Sales, on_delete=models.CASCADE, related_name='lucky_draw_systems')
 
     def __str__(self):
         return self.name
@@ -81,18 +81,22 @@ class FixOffer(models.Model):
 class BaseOffer(models.Model):
     OFFER_CHOICES = [
         ("After every certain sale", "After every certain sale"),
-        ("At certain sale position", "At certain sale position"),
-        ("Weekly Offer", "Weekly Offer"),
-        ("Monthly Offer", "Monthly Offer"),
+        ("At certain sale position", "At certain sale position")
+    ]
+
+    VALID_TO=[
+        ('All', 'All'),
+        ('CONDITIONAL', 'CONDITIONAL'),
     ]
 
     lucky_draw_system = models.ForeignKey(LuckyDrawSystem, on_delete=models.CASCADE)
     start_date = models.DateField()
     end_date = models.DateField()
-    quantity = models.PositiveIntegerField(default=0)
+    daily_quantity = models.PositiveIntegerField(default=0)
     type_of_offer = models.CharField(max_length=30, choices=OFFER_CHOICES)
     offer_condition_value = models.CharField(max_length=500, blank=True)
     sale_numbers = models.JSONField(null=True, blank=True)
+    valid_to=models.CharField(max_length=20, choices=VALID_TO, default='All')
 
     class Meta:
         abstract = True
@@ -100,8 +104,8 @@ class BaseOffer(models.Model):
     def is_valid_date(self):
         return self.start_date <= timezone.now().date() <= self.end_date
 
-class MobileOfferType(models.Model):
-    offer_type_name=models.CharField(max_length=100)
+class MobileOfferCondition(models.Model):
+    offer_condition_name=models.CharField(max_length=100)
     condition=models.CharField(max_length=100)
 
     def __str__(self):
@@ -111,7 +115,7 @@ class MobilePhoneOffer(BaseOffer):
 
     gift = models.ForeignKey(GiftItem, on_delete=models.CASCADE)
     per_day = models.PositiveIntegerField(default=0)
-    validto = models.ForeignKey(MobileOfferType, on_delete=models.CASCADE,default='ALL')
+    valid_condition = models.ManyToManyField(MobileOfferCondition, blank=True)
     priority = models.PositiveIntegerField(default=0)
 
     def __str__(self):
@@ -120,9 +124,18 @@ class MobilePhoneOffer(BaseOffer):
     class Meta:
         ordering = ("start_date", "priority")
 
+class RechargeCardCondition(models.Model):
+    offer_condition_name=models.CharField(max_length=100)
+    condition=models.CharField(max_length=100)
+
+    def __str__(self):
+        return f"{self.offer_type_name} (Condition: {self.condition})"
+
+
 class RechargeCardOffer(BaseOffer):
     amount = models.IntegerField(choices=RechargeCard.AMOUNT_CHOICES, default=50)
     provider = models.CharField(max_length=20, choices=RechargeCard.PROVIDER_CHOICES, default="Ncell")
+    valid_condition= models.ManyToManyField(RechargeCardCondition, blank=True)
 
     def __str__(self):
         return f"Offer on {self.provider} of {self.amount} Recharge card [ {self.quantity} ]"
@@ -130,7 +143,15 @@ class RechargeCardOffer(BaseOffer):
     class Meta:
         ordering = ("start_date",)
 
+class ElectronicOfferCondition(models.Model):
+    offer_condition_name=models.CharField(max_length=100)
+    condition=models.CharField(max_length=100)
+
+    def __str__(self):
+        return f"{self.offer_type_name} (Condition: {self.condition})"
+
 class ElectronicsShopOffer(BaseOffer):
+    valid_condition=models.ManyToManyField(ElectronicOfferCondition,blank=True)
     def __str__(self):
         return f"Offer on Electronics Shop [ {self.quantity} ]"
 

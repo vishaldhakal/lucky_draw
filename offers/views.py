@@ -65,9 +65,10 @@ class LuckyDrawSystemSerializerView(generics.ListCreateAPIView):
         lucky_draw_system.save()
         serializer = LuckyDrawSystemSerializer(lucky_draw_system)
         return Response(serializer.data)
+    
 class LuckyDrawSystemRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = LuckyDrawSystemSerializer
-    permission_classes = [IsAuthenticated]
+    # permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         return LuckyDrawSystem.objects.filter(organization=self.request.user.organization)
@@ -303,11 +304,6 @@ class CustomerSerializerView(generics.ListCreateAPIView):
         imei_obj.used=True
         imei_obj.save()
 
-        today_date=timezone.now().date()
-        sale_today, created = Sales.objects.get_or_create(date=today_date)
-        sale_today.sales_count += 1
-        sale_today.save()
-
         lucky_draw=LuckyDrawSystem.objects.get(id=lucky_draw_system)
 
         customer = Customer.objects.create(
@@ -323,13 +319,23 @@ class CustomerSerializerView(generics.ListCreateAPIView):
         )
         # customer.save()
 
-        self.assign_gift(customer, imei, phone_model, sale_today.sales_count, today_date, lucky_draw_system)
-
-        
+        self.assign_gift(customer)
+      
         serializer = CustomerSerializer(customer)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
     
-    def assign_gift(self,customer,imei,phone_model,sales_count,today_date,lucky_draw_system):
+    def assign_gift(self,customer):
+        today=timezone.now().date()
+        lucky_draw_system=customer.lucky_draw_system
+
+        sales_today,created = Sales.objects.get_or_create(
+            date=today,
+            lucky_draw_system=lucky_draw_system,
+            defaults={
+                'sales_count':0
+            }
+        )
+        
         #Fixed Offers
         fix_offer=FixOffer.objects.filter(lucky_draw_system=lucky_draw_system,quantity__gt=0)
         for offer in fix_offer:
