@@ -9,7 +9,7 @@ class GiftItemSerializer(serializers.ModelSerializer):
 class LuckyDrawSystemSerializer(serializers.ModelSerializer):
     class Meta:
         model = LuckyDrawSystem
-        fields = ['organization','name','description','background_image','hero_image','main_offer_stamp_image','qr','type','start_date','end_date']
+        fields = ['id','name','description','background_image','hero_image','main_offer_stamp_image','qr','type','start_date','end_date']
         read_only_fields = ['created_at','updated_at']
 
 class RechargeCardSerializer(serializers.ModelSerializer):

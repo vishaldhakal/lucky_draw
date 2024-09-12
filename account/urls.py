@@ -26,5 +26,5 @@ urlpatterns = [
     # Organization management
     path('organizations/', OrganizationListView.as_view(), name='organization-list'),
     path('organizations/<int:pk>/', OrganizationDetailView.as_view(), name='organization-detail'),
-    path('get-organizations/', GetOrganizationView.as_view(), name='get-organizations'),
+    path('get-organization/', GetOrganizationView.as_view(), name='get-organization'),
 ]

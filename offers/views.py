@@ -104,20 +104,20 @@ class LuckyDrawSystemRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPI
 
 class GiftItemSerializerView(generics.ListCreateAPIView):
 
-    queryset = GiftItem.objects.all()
     serializer_class = GiftItemSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return GiftItem.objects.filter(lucky_draw_system__organization=self.request.user.organization)
+        lucky_draw_system_id = self.request.GET["lucky_draw_system_id"]
+        return GiftItem.objects.filter(lucky_draw_system__id=lucky_draw_system_id)
 
-    def create(self, request, *args, **kwargs):
-        lucky_draw_system = request.data.get('lucky_draw_system')
+    def create(self, request):
+        lucky_draw_system_id = self.request.GET["lucky_draw_system_id"]
         name=request.data.get('name')
         image=request.data.get('image')
 
         gift_item = GiftItem.objects.create(
-            lucky_draw_system=lucky_draw_system,
+            lucky_draw_system_id=lucky_draw_system_id,
             name=name,
             image=image
         )
@@ -129,10 +129,7 @@ class GiftItemSerializerView(generics.ListCreateAPIView):
 class GiftItemRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     queryset = GiftItem.objects.all()
     serializer_class = GiftItemSerializer
-    # permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        return GiftItem.objects.filter(lucky_draw_system__organization=self.request.user.organization)
+    permission_classes = [IsAuthenticated]
 
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -175,7 +172,6 @@ class RechargeCardSerializerView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-       
         return RechargeCard.objects.filter(lucky_draw_system__organization=self.request.user.organization)
     
     def create(self, request, *args, **kwargs):

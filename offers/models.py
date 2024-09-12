@@ -27,10 +27,10 @@ class LuckyDrawSystem(models.Model):
     main_offer_stamp_image = models.FileField(upload_to='lucky_draws/', blank=True, null=True)
     qr = models.FileField(upload_to='lucky_draws/', blank=True, null=True)
     type = models.CharField(max_length=20, choices=LUCKY_DRAW_TYPE_CHOICES)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    start_date = models.DateTimeField()
-    end_date = models.DateTimeField()
+    created_at = models.DateField(auto_now_add=True)
+    updated_at = models.DateField(auto_now=True)
+    start_date = models.DateField()
+    end_date = models.DateField()
 
     def __str__(self):
         return self.name

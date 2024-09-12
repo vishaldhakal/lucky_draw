@@ -1,5 +1,6 @@
 from pathlib import Path
 from django.utils.translation import gettext_lazy as _
+from datetime import timedelta
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -163,8 +164,8 @@ X_FRAME_OPTIONS = 'SAMEORIGIN'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 UNFOLD = {
-    "SITE_HEADER": _("iCommission Admin"),
-    "SITE_TITLE": _("iCommission Admin"),
+    "SITE_HEADER": _("Luckydraw Admin"),
+    "SITE_TITLE": _("Luckydraw Admin"),
     "THEME": "light",
     "SIDEBAR": {
         "show_search": True,
@@ -211,4 +212,10 @@ TINYMCE_DEFAULT_CONFIG = {
         input.click();
     }""",
     "content_style": "body { font-family:Roboto,Helvetica,Arial,sans-serif; font-size:14px }",
+}
+
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=50),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
 }

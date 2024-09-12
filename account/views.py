@@ -16,7 +16,7 @@ class UserRegistrationView(generics.CreateAPIView):
 class UserLoginView(APIView):
     permission_classes = (permissions.AllowAny,)
 
-    def post(self, request):
+    def post(self, request):     
         email = request.data.get('email')
         password = request.data.get('password')
         user = User.objects.filter(email=email).first()
@@ -28,6 +28,7 @@ class UserLoginView(APIView):
         return Response({
             'refresh': str(refresh),
             'access': str(refresh.access_token),
+            'user': UserSerializer(user).data,
         })
 
 class UserLogoutView(APIView):
@@ -110,3 +111,5 @@ class GetOrganizationView(generics.GenericAPIView):
     def get(self, request):
         user = self.request.user
         return Response(user.organization)
+    
+
