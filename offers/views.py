@@ -1,14 +1,16 @@
 from django.utils import timezone
-from django.shortcuts import get_object_or_404
-from rest_framework import generics,status
+from rest_framework import generics, status
+from rest_framework.decorators import api_view
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from .serializers import GiftItemSerializer,LuckyDrawSystemSerializer,RechargeCardSerializer,IMEINOSerializer,FixOfferSerializer,MobileOfferConditionSerializer,MobilePhoneOfferSerializer,RechargeCardOfferSerializer,CustomerSerializer,ElectronicShopOfferConditionSerializer,ElectronicsShopOfferSerializer
 from .models import Sales,GiftItem,LuckyDrawSystem,RechargeCard,IMEINO,FixOffer,MobilePhoneOffer,RechargeCardOffer,ElectronicsShopOffer,Customer,MobileOfferCondition,ElectronicOfferCondition,BaseOffer
+import csv
+import io
 
 # Create your views here.
 
-class LuckyDrawSystemSerializerView(generics.ListCreateAPIView):    
+class LuckyDrawSystemListCreateView(generics.ListCreateAPIView):    
     serializer_class = LuckyDrawSystemSerializer
     permission_classes = [IsAuthenticated]
     
@@ -102,7 +104,7 @@ class LuckyDrawSystemRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPI
         self.perform_destroy(instance)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-class GiftItemSerializerView(generics.ListCreateAPIView):
+class GiftItemListCreateView(generics.ListCreateAPIView):
 
     serializer_class = GiftItemSerializer
     permission_classes = [IsAuthenticated]
@@ -171,7 +173,7 @@ class GiftItemRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     def perform_destroy(self, instance):
         instance.delete()
 
-class RechargeCardSerializerView(generics.ListCreateAPIView):
+class RechargeCardListCreateView(generics.ListCreateAPIView):
     serializer_class = RechargeCardSerializer
     permission_classes = [IsAuthenticated]
 
@@ -231,7 +233,7 @@ class RechargeCardRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIVie
         instance.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-class IMEINOSerializerView(generics.ListCreateAPIView):
+class IMEINOListCreateView(generics.ListCreateAPIView):
     serializer_class = IMEINOSerializer
     # permission_classes = [IsAuthenticated]
 
@@ -284,7 +286,7 @@ class IMEINORetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
         instance.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-class FixOfferSerializerView(generics.ListCreateAPIView):
+class FixOfferListCreateView(generics.ListCreateAPIView):
     serializer_class = FixOfferSerializer
     permission_classes = [IsAuthenticated]
 
@@ -340,7 +342,7 @@ class FixOfferRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
         instance.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-class MobileOfferConditionSerializerView(generics.ListCreateAPIView):
+class MobileOfferConditionListCreateView(generics.ListCreateAPIView):
     serializer_class = MobileOfferConditionSerializer
     permission_classes = [IsAuthenticated]
 
@@ -389,7 +391,7 @@ class MobileOfferConditionRetrieveUpdateDestroyView(generics.RetrieveUpdateDestr
         self.perform_destroy(instance)
         return Response({"message": "Mobile offer condition deleted successfully"})
 
-class MobilePhoneOfferSerializerView(generics.ListCreateAPIView):
+class MobilePhoneOfferListCreateView(generics.ListCreateAPIView):
     serializer_class = MobilePhoneOfferSerializer
     permission_classes = [IsAuthenticated]
 
@@ -481,7 +483,7 @@ class MobilePhoneOfferRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAP
         self.perform_destroy(instance)
         return Response({"message": "Mobile phone offer deleted successfully"}, status=status.HTTP_204_NO_CONTENT)
 
-class RechargeCardOfferSerializerView(generics.ListCreateAPIView):
+class RechargeCardOfferListCreateView(generics.ListCreateAPIView):
     serializer_class = RechargeCardOfferSerializer
     permission_classes = [IsAuthenticated]
 
@@ -683,7 +685,7 @@ class ElectronicsShopOfferRetrieveUpdateDestroyView(generics.RetrieveUpdateDestr
         self.perform_destroy(instance)
         return Response({"message": "Electronics shop offer deleted successfully"}, status=status.HTTP_204_NO_CONTENT)
 
-class CustomerSerializerView(generics.ListCreateAPIView):
+class CustomerListCreateView(generics.ListCreateAPIView):
     serializer_class = CustomerSerializer
     # permission_classes = [IsAuthenticated]
 
@@ -870,3 +872,26 @@ class CustomerSerializerView(generics.ListCreateAPIView):
             conditions = offer.valid_condition.all()
             return not conditions or any(phone_model.startswith(cond.condition) for cond in conditions)
         return True  # If there's no valid_condition, assume it's valid for all
+    
+    
+@api_view(['POST'])
+def UploadImeiBulk(request):
+    if request.method == 'POST':
+        file = request.FILES['file']
+        lucky_draw_system_id = request.data.get('lucky_draw_system')
+        lucky_draw_system = LuckyDrawSystem.objects.get(id=lucky_draw_system_id)
+
+        if file.name.endswith('.csv'):
+            data_set = file.read().decode('UTF-8')
+            io_string = io.StringIO(data_set)
+            next(io_string)
+            for column in csv.reader(io_string, delimiter=',', quotechar="|"):
+                imei = IMEINO()
+                imei.imei_no = column[0]
+                imei.lucky_draw_system = lucky_draw_system
+                imei.phone_model = column[1]
+                imei.save()
+            return Response({"message": "IMEI numbers uploaded successfully"}, status=status.HTTP_201_CREATED)
+        else:
+            return Response({"error": "Invalid file format. Please upload a CSV file."}, status=status.HTTP_400_BAD_REQUEST)
+    return Response({"error": "Invalid request method. Please use POST method."}, status=status.HTTP_400_BAD_REQUEST)
