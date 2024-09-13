@@ -3,6 +3,7 @@ from account.models import Organization
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.utils import timezone
 
+
 class Sales(models.Model):
     sales_count = models.IntegerField(default=0)
     date = models.DateField(
@@ -34,6 +35,10 @@ class LuckyDrawSystem(models.Model):
     start_date = models.DateField()
     end_date = models.DateField()
     uuid_key=models.CharField(max_length=255,unique=True,default='')
+    redeem_condition=models.TextField(blank=True)
+    how_to_participate = models.TextField(blank=True)
+    terms_and_conditions = models.TextField(blank=True)
+    
 
     def __str__(self):
         return self.name
