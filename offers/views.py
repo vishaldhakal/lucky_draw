@@ -110,6 +110,7 @@ class GiftItemSerializerView(generics.ListCreateAPIView):
     def get_queryset(self):
         lucky_draw_system_id = self.request.GET["lucky_draw_system_id"]
         return GiftItem.objects.filter(lucky_draw_system__id=lucky_draw_system_id)
+    
 
     def create(self, request):
         lucky_draw_system_id = self.request.GET["lucky_draw_system_id"]
@@ -123,8 +124,11 @@ class GiftItemSerializerView(generics.ListCreateAPIView):
         )
 
         gift_item.save()
-        serializer = GiftItemSerializer(gift_item)
-        return Response(serializer.data)
+        gift_item_uploaded = GiftItem.objects.get(id=gift_item.id)
+        serializer = GiftItemSerializer(gift_item_uploaded)
+        data = serializer.data
+        data['image'] = request.build_absolute_uri(data['image'])
+        return Response(data)
 
 class GiftItemRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     queryset = GiftItem.objects.all()
