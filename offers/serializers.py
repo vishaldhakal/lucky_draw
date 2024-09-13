@@ -6,6 +6,12 @@ class GiftItemSerializer(serializers.ModelSerializer):
         model = GiftItem
         fields = '__all__'
 
+class GetOrganiazationDetail(serializers.ModelSerializer):
+    class Meta:
+        model=LuckyDrawSystem
+        fields='__all__'
+        depth=1
+
 class LuckyDrawSystemSerializer(serializers.ModelSerializer):
     class Meta:
         model = LuckyDrawSystem

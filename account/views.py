@@ -4,7 +4,7 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import get_user_model
 from .models import Organization
-from .serializers import UserSerializer, OrganizationSerializer, PasswordChangeSerializer, PasswordResetSerializer, PasswordResetConfirmSerializer,GetOrganizationSerializer
+from .serializers import UserSerializer, OrganizationSerializer, PasswordChangeSerializer, PasswordResetSerializer, PasswordResetConfirmSerializer
 
 User = get_user_model()
 
@@ -105,19 +105,11 @@ class OrganizationDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = (permissions.IsAuthenticated,)
 
 class GetOrganizationView(generics.GenericAPIView):
-    serializer_class = GetOrganizationSerializer
-    
+    serializer_class = OrganizationSerializer
+    permission_classes = (permissions.IsAuthenticated,)
+
     def get(self, request):
-        organization_name = request.query_params.get('organization_name')
-        try:
-            organization = Organization.objects.get(name=organization_name)
-            serializer = self.get_serializer(organization)
-            return Response(serializer.data)
-        except Organization.DoesNotExist:
-            return Response(
-                    {"error": f"Organization with name '{organization_name}' not found"},
-                    status=status.HTTP_404_NOT_FOUND
-                )
-        
+        user = self.request.user
+        return Response(user.organization)
     
 

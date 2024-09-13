@@ -1,14 +1,30 @@
 from django.utils import timezone
 from rest_framework import generics, status
 from rest_framework.decorators import api_view
+from django.http import HttpResponse
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from .serializers import GiftItemSerializer,LuckyDrawSystemSerializer,RechargeCardSerializer,IMEINOSerializer,FixOfferSerializer,MobileOfferConditionSerializer,MobilePhoneOfferSerializer,RechargeCardOfferSerializer,CustomerSerializer,ElectronicShopOfferConditionSerializer,ElectronicsShopOfferSerializer
+from .serializers import GiftItemSerializer,LuckyDrawSystemSerializer,RechargeCardSerializer,IMEINOSerializer,FixOfferSerializer,MobileOfferConditionSerializer,MobilePhoneOfferSerializer,RechargeCardOfferSerializer,CustomerSerializer,ElectronicShopOfferConditionSerializer,ElectronicsShopOfferSerializer,GetOrganiazationDetail
 from .models import Sales,GiftItem,LuckyDrawSystem,RechargeCard,IMEINO,FixOffer,MobilePhoneOffer,RechargeCardOffer,ElectronicsShopOffer,Customer,MobileOfferCondition,ElectronicOfferCondition,BaseOffer
 import csv
 import io
 
 # Create your views here.
+class GetOrganizationDetails(generics.GenericAPIView):
+    serializer_class = GetOrganiazationDetail
+    
+    def get(self, request):
+        organization_id = request.query_params.get('organization_id')
+        try:
+            organization = LuckyDrawSystem.objects.get(organization__id=organization_id)
+            serializer = self.get_serializer(organization)
+            return Response(serializer.data)
+        except LuckyDrawSystem.DoesNotExist:
+            return Response(
+                    {"error": f"Organization with name '{organization_id}' not found"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
 
 class LuckyDrawSystemListCreateView(generics.ListCreateAPIView):    
     serializer_class = LuckyDrawSystemSerializer
@@ -876,6 +892,7 @@ class CustomerListCreateView(generics.ListCreateAPIView):
     
 @api_view(['POST'])
 def UploadImeiBulk(request):
+
     if request.method == 'POST':
         file = request.FILES['file']
         lucky_draw_system_id = request.data.get('lucky_draw_system')
@@ -886,12 +903,43 @@ def UploadImeiBulk(request):
             io_string = io.StringIO(data_set)
             next(io_string)
             for column in csv.reader(io_string, delimiter=',', quotechar="|"):
-                imei = IMEINO()
-                imei.imei_no = column[0]
-                imei.lucky_draw_system = lucky_draw_system
-                imei.phone_model = column[1]
-                imei.save()
+                if not IMEINO.objects.filter(imei_no=imei.imei_no).exists():
+                    imei = IMEINO()
+                    imei.imei_no = column[0]             
+                    imei.lucky_draw_system = lucky_draw_system
+                    imei.phone_model = column[1]
+                    imei.save()
             return Response({"message": "IMEI numbers uploaded successfully"}, status=status.HTTP_201_CREATED)
         else:
             return Response({"error": "Invalid file format. Please upload a CSV file."}, status=status.HTTP_400_BAD_REQUEST)
     return Response({"error": "Invalid request method. Please use POST method."}, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['POST'])
+def download_customers_detail(request):
+    if request.method == 'POST':
+        start_date = request.data.get('start_date', None)
+        end_date = request.data.get('end_date', None)
+
+        # Create a base queryset for customers with gifts
+        queryset = Customer.objects.all()
+
+        if start_date and end_date:
+            # Filter data within the specified date range
+            queryset = queryset.filter(
+                date_of_purchase__range=(start_date, end_date))
+
+        # Create a CSV response
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="customers_detail.csv"'
+
+        # Create a CSV writer and write the header row
+        writer = csv.writer(response)
+        writer.writerow(['Customer Name', 'Shop Name', 'Sold Area', 'Phone Number', 'Phone Model',
+                        'Sale Status', 'Prize Details', 'IMEI', 'Gift', 'Date of Purchase', 'How Know About Campaign', 'Recharge Card','NTC Recharge Card', 'Amount of Ntc Card', 'Profession'])
+
+        # Write the data rows
+        for customer in queryset:
+            writer.writerow([customer.customer_name, customer.shop_name, customer.sold_area, customer.phone_number, customer.phone_model,
+                            customer.sale_status, customer.prize_details, customer.imei, customer.gift, customer.date_of_purchase, customer.how_know_about_campaign, customer.recharge_card,customer.ntc_recharge_card, customer.amount_of_card, customer.profession])
+
+        return response

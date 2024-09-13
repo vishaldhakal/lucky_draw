@@ -2,6 +2,9 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
+    # Get Organization Details
+    path('get-organization/', views.GetOrganizationDetails.as_view(), name='get-organization-details'),
+    
     # GiftItem URLs
     path('gift-items/', views.GiftItemListCreateView.as_view(), name='gift-item-list-create'),
     path('gift-items/<int:pk>/', views.GiftItemRetrieveUpdateDestroyView.as_view(), name='gift-item-detail'),
@@ -36,4 +39,10 @@ urlpatterns = [
 
     # Customer URLs
     path('customers/', views.CustomerListCreateView.as_view(), name='customer-list-create'),
+
+    # Download Customer Detial
+    path('download-customer-details/', views.download_customers_detail, name='download-customer-details'),
+
+    # Upload IMEINo
+    path('upload-imeino/', views.UploadImeiBulk, name='upload-imeino'),
 ]
