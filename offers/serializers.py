@@ -30,12 +30,13 @@ class FixOfferSerializer(serializers.ModelSerializer):
 class MobileOfferConditionSerializer(serializers.ModelSerializer):
     class Meta:
         model = MobileOfferCondition
-        fields = '__all__'
+        fields = ['id', 'offer_condition_name', 'condition']
 
 class MobilePhoneOfferSerializer(serializers.ModelSerializer):
     class Meta:
         model = MobilePhoneOffer
-        fields = '__all__'
+        exclude = ['lucky_draw_system']
+        depth = 1
 
 class RechargeCardOfferSerializer(serializers.ModelSerializer):
     class Meta:
