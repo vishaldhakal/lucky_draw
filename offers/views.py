@@ -61,7 +61,6 @@ class LuckyDrawSystemListCreateView(generics.ListCreateAPIView):
             type=type,
             start_date=start_date,
             end_date=end_date,
-            uuid_key=uuid_key,
             how_to_participate=how_to_participate,
             redeem_condition=redeem_condition,
             terms_and_conditions=terms_and_conditions
@@ -80,8 +79,7 @@ class LuckyDrawSystemRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPI
 
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
-
-        
+ 
         name = request.data.get('name')
         description = request.data.get('description')
         background_image = request.data.get('background_image')
@@ -147,7 +145,6 @@ class GiftItemListCreateView(generics.ListCreateAPIView):
         lucky_draw_system_id = self.request.GET["lucky_draw_system_id"]
         return GiftItem.objects.filter(lucky_draw_system__id=lucky_draw_system_id)
     
-
     def create(self, request):
         lucky_draw_system_id = self.request.GET["lucky_draw_system_id"]
         name=request.data.get('name')
