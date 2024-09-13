@@ -48,7 +48,7 @@ class LuckyDrawSystemListCreateView(generics.ListCreateAPIView):
     
 class LuckyDrawSystemRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = LuckyDrawSystemSerializer
-    # permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         return LuckyDrawSystem.objects.filter(organization=self.request.user.organization)
@@ -235,7 +235,7 @@ class RechargeCardRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIVie
 
 class IMEINOListCreateView(generics.ListCreateAPIView):
     serializer_class = IMEINOSerializer
-    # permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
 
@@ -258,7 +258,7 @@ class IMEINOListCreateView(generics.ListCreateAPIView):
 
 class IMEINORetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = IMEINOSerializer
-    # permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         return IMEINO.objects.filter(lucky_draw_system__organization=self.request.user.organization)
@@ -687,7 +687,7 @@ class ElectronicsShopOfferRetrieveUpdateDestroyView(generics.RetrieveUpdateDestr
 
 class CustomerListCreateView(generics.ListCreateAPIView):
     serializer_class = CustomerSerializer
-    # permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
 
