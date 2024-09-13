@@ -931,8 +931,8 @@ def UploadImeiBulk(request):
 @api_view(['POST'])
 def download_customers_detail(request):
     if request.method == 'POST':
-        start_date = request.data.get('start_date', None)
-        end_date = request.data.get('end_date', None)
+        start_date = request.GET.get('start_date', None)
+        end_date = request.GET.get('end_date', None)
 
         # Create a base queryset for customers with gifts
         queryset = Customer.objects.all()
