@@ -68,3 +68,8 @@ class CustomerSerializer(serializers.ModelSerializer):
     class Meta:
         model = Customer
         fields = ['lucky_draw_system','customer_name','shop_name','sold_area','phone_number','phone_model','imei','date_of_purchase','how_know_about_campaign','profession']
+
+class CustomerGiftSerializer(serializers.ModelSerializer):
+    class Meta:
+        model=Customer
+        fields=['customer_name','shop_name','sold_area','phone_number','phone_model','imei','gift','date_of_purchase']

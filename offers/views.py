@@ -4,7 +4,7 @@ from rest_framework.decorators import api_view
 from django.http import HttpResponse
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from .serializers import GiftItemSerializer,LuckyDrawSystemSerializer,RechargeCardSerializer,IMEINOSerializer,FixOfferSerializer,MobileOfferConditionSerializer,MobilePhoneOfferSerializer,RechargeCardOfferSerializer,CustomerSerializer,ElectronicShopOfferConditionSerializer,ElectronicsShopOfferSerializer,GetOrganiazationDetail
+from .serializers import GiftItemSerializer,LuckyDrawSystemSerializer,RechargeCardSerializer,IMEINOSerializer,FixOfferSerializer,MobileOfferConditionSerializer,MobilePhoneOfferSerializer,RechargeCardOfferSerializer,CustomerSerializer,ElectronicShopOfferConditionSerializer,ElectronicsShopOfferSerializer,GetOrganiazationDetail,CustomerGiftSerializer
 from .models import Sales,GiftItem,LuckyDrawSystem,RechargeCard,IMEINO,FixOffer,MobilePhoneOffer,RechargeCardOffer,ElectronicsShopOffer,Customer,MobileOfferCondition,ElectronicOfferCondition,BaseOffer
 import csv
 import io
@@ -721,7 +721,6 @@ class ElectronicsShopOfferRetrieveUpdateDestroyView(generics.RetrieveUpdateDestr
 
 class CustomerListCreateView(generics.ListCreateAPIView):
     serializer_class = CustomerSerializer
-    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
 
@@ -784,7 +783,7 @@ class CustomerListCreateView(generics.ListCreateAPIView):
 
         self.assign_gift(customer)
       
-        serializer = CustomerSerializer(customer)
+        serializer = CustomerGiftSerializer(customer)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
     
     def assign_gift(self,customer):

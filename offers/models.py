@@ -3,7 +3,6 @@ from account.models import Organization
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.utils import timezone
 
-
 class Sales(models.Model):
     sales_count = models.IntegerField(default=0)
     date = models.DateField(
@@ -39,7 +38,6 @@ class LuckyDrawSystem(models.Model):
     redeem_condition=models.TextField(blank=True)
     terms_and_conditions = models.TextField(blank=True)
     
-
     def __str__(self):
         return self.name
 
