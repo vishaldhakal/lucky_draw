@@ -44,6 +44,11 @@ class LuckyDrawSystemListCreateView(generics.ListCreateAPIView):
         type=request.data.get('type')
         start_date=request.data.get('start_date')
         end_date=request.data.get('end_date')
+        uuid_key=request.data.get('uuid_key')
+        how_to_participate=request.data.get('how_to_participate')
+        redeem_condition=request.data.get('redeem_condition')
+        terms_and_conditions=request.data.get('terms_and_conditions')
+
 
         lucky_draw_system = LuckyDrawSystem.objects.create(
             organization=organization,
@@ -55,7 +60,11 @@ class LuckyDrawSystemListCreateView(generics.ListCreateAPIView):
             qr=qr,
             type=type,
             start_date=start_date,
-            end_date=end_date
+            end_date=end_date,
+            uuid_key=uuid_key,
+            how_to_participate=how_to_participate,
+            redeem_condition=redeem_condition,
+            terms_and_conditions=terms_and_conditions
         )
 
         lucky_draw_system.save()
@@ -82,6 +91,9 @@ class LuckyDrawSystemRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPI
         type = request.data.get('type')
         start_date = request.data.get('start_date')
         end_date = request.data.get('end_date')
+        how_to_participate=request.data.get('how_to_participate')
+        redeem_condition=request.data.get('redeem_condition')
+        terms_and_conditions=request.data.get('terms_and_conditions')
 
         # Update the instance fields if provided in the request
         if name is not None:
@@ -102,6 +114,12 @@ class LuckyDrawSystemRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPI
             instance.start_date = start_date
         if end_date is not None:
             instance.end_date = end_date
+        if how_to_participate is not None:
+            instance.how_to_participate = how_to_participate
+        if redeem_condition is not None:
+            instance.redeem_condition = redeem_condition
+        if terms_and_conditions is not None:
+            instance.terms_and_conditions = terms_and_conditions
 
         # Save the updated instance
         instance.save()
