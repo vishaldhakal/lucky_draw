@@ -4,51 +4,81 @@ from rest_framework.decorators import api_view
 from django.http import HttpResponse
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from .serializers import GiftItemSerializer,LuckyDrawSystemSerializer,RechargeCardSerializer,IMEINOSerializer,FixOfferSerializer,MobileOfferConditionSerializer,MobilePhoneOfferSerializer,RechargeCardOfferSerializer,CustomerSerializer,ElectronicShopOfferConditionSerializer,ElectronicsShopOfferSerializer,GetOrganiazationDetail,CustomerGiftSerializer
-from .models import Sales,GiftItem,LuckyDrawSystem,RechargeCard,IMEINO,FixOffer,MobilePhoneOffer,RechargeCardOffer,ElectronicsShopOffer,Customer,MobileOfferCondition,ElectronicOfferCondition,BaseOffer
+from .serializers import (
+    GiftItemSerializer,
+    LuckyDrawSystemSerializer,
+    RechargeCardSerializer,
+    IMEINOSerializer,
+    FixOfferSerializer,
+    MobileOfferConditionSerializer,
+    MobilePhoneOfferSerializer,
+    RechargeCardOfferSerializer,
+    CustomerSerializer,
+    ElectronicShopOfferConditionSerializer,
+    ElectronicsShopOfferSerializer,
+    GetOrganiazationDetail,
+    CustomerGiftSerializer,
+)
+from .models import (
+    Sales,
+    GiftItem,
+    LuckyDrawSystem,
+    RechargeCard,
+    IMEINO,
+    FixOffer,
+    MobilePhoneOffer,
+    RechargeCardOffer,
+    ElectronicsShopOffer,
+    Customer,
+    MobileOfferCondition,
+    ElectronicOfferCondition,
+    BaseOffer,
+)
 import csv
 import io
+
 
 # Create your views here.
 class GetOrganizationDetails(generics.GenericAPIView):
     serializer_class = GetOrganiazationDetail
-    
+
     def get(self, request):
-        organization_id = request.query_params.get('organization_id')
+        organization_id = request.query_params.get("organization_id")
         try:
             organization = LuckyDrawSystem.objects.get(organization__id=organization_id)
             serializer = self.get_serializer(organization)
             return Response(serializer.data)
         except LuckyDrawSystem.DoesNotExist:
             return Response(
-                    {"error": f"Organization with name '{organization_id}' not found"},
-                    status=status.HTTP_404_NOT_FOUND
-                )
+                {"error": f"Organization with name '{organization_id}' not found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
 
 
-class LuckyDrawSystemListCreateView(generics.ListCreateAPIView):    
+class LuckyDrawSystemListCreateView(generics.ListCreateAPIView):
     serializer_class = LuckyDrawSystemSerializer
     permission_classes = [IsAuthenticated]
-    
+
     def get_queryset(self):
-        return LuckyDrawSystem.objects.filter(organization=self.request.user.organization)
+        return LuckyDrawSystem.objects.filter(
+            organization=self.request.user.organization
+        )
 
     def create(self, request, *args, **kwargs):
-        organization = request.data.get('organization')
-        name = request.data.get('name')
-        description = request.data.get('description')
-        background_image=request.data.get('background_image')
-        hero_image=request.data.get('hero_image')
-        main_offer_stamp_image=request.data.get('main_offer_stamp_image')
-        qr=request.data.get('qr')
-        type=request.data.get('type')
-        start_date=request.data.get('start_date')
-        end_date=request.data.get('end_date')
-        uuid_key=request.data.get('uuid_key')
-        how_to_participate=request.data.get('how_to_participate')
-        redeem_condition=request.data.get('redeem_condition')
-        terms_and_conditions=request.data.get('terms_and_conditions')
-
+        organization = request.data.get("organization")
+        name = request.data.get("name")
+        description = request.data.get("description")
+        background_image = request.data.get("background_image")
+        hero_image = request.data.get("hero_image")
+        main_offer_stamp_image = request.data.get("main_offer_stamp_image")
+        qr = request.data.get("qr")
+        type = request.data.get("type")
+        start_date = request.data.get("start_date")
+        end_date = request.data.get("end_date")
+        uuid_key = request.data.get("uuid_key")
+        how_to_participate = request.data.get("how_to_participate")
+        redeem_condition = request.data.get("redeem_condition")
+        terms_and_conditions = request.data.get("terms_and_conditions")
 
         lucky_draw_system = LuckyDrawSystem.objects.create(
             organization=organization,
@@ -63,35 +93,38 @@ class LuckyDrawSystemListCreateView(generics.ListCreateAPIView):
             end_date=end_date,
             how_to_participate=how_to_participate,
             redeem_condition=redeem_condition,
-            terms_and_conditions=terms_and_conditions
+            terms_and_conditions=terms_and_conditions,
         )
 
         lucky_draw_system.save()
         serializer = LuckyDrawSystemSerializer(lucky_draw_system)
         return Response(serializer.data)
-    
+
+
 class LuckyDrawSystemRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = LuckyDrawSystemSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return LuckyDrawSystem.objects.filter(organization=self.request.user.organization)
+        return LuckyDrawSystem.objects.filter(
+            organization=self.request.user.organization
+        )
 
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
- 
-        name = request.data.get('name')
-        description = request.data.get('description')
-        background_image = request.data.get('background_image')
-        hero_image = request.data.get('hero_image')
-        main_offer_stamp_image = request.data.get('main_offer_stamp_image')
-        qr = request.data.get('qr')
-        type = request.data.get('type')
-        start_date = request.data.get('start_date')
-        end_date = request.data.get('end_date')
-        how_to_participate=request.data.get('how_to_participate')
-        redeem_condition=request.data.get('redeem_condition')
-        terms_and_conditions=request.data.get('terms_and_conditions')
+
+        name = request.data.get("name")
+        description = request.data.get("description")
+        background_image = request.data.get("background_image")
+        hero_image = request.data.get("hero_image")
+        main_offer_stamp_image = request.data.get("main_offer_stamp_image")
+        qr = request.data.get("qr")
+        type = request.data.get("type")
+        start_date = request.data.get("start_date")
+        end_date = request.data.get("end_date")
+        how_to_participate = request.data.get("how_to_participate")
+        redeem_condition = request.data.get("redeem_condition")
+        terms_and_conditions = request.data.get("terms_and_conditions")
 
         # Update the instance fields if provided in the request
         if name is not None:
@@ -136,6 +169,7 @@ class LuckyDrawSystemRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPI
         self.perform_destroy(instance)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+
 class GiftItemListCreateView(generics.ListCreateAPIView):
 
     serializer_class = GiftItemSerializer
@@ -144,24 +178,23 @@ class GiftItemListCreateView(generics.ListCreateAPIView):
     def get_queryset(self):
         lucky_draw_system_id = self.request.GET["lucky_draw_system_id"]
         return GiftItem.objects.filter(lucky_draw_system__id=lucky_draw_system_id)
-    
+
     def create(self, request):
         lucky_draw_system_id = self.request.GET["lucky_draw_system_id"]
-        name=request.data.get('name')
-        image=request.data.get('image')
+        name = request.data.get("name")
+        image = request.data.get("image")
 
         gift_item = GiftItem.objects.create(
-            lucky_draw_system_id=lucky_draw_system_id,
-            name=name,
-            image=image
+            lucky_draw_system_id=lucky_draw_system_id, name=name, image=image
         )
 
         gift_item.save()
         gift_item_uploaded = GiftItem.objects.get(id=gift_item.id)
         serializer = GiftItemSerializer(gift_item_uploaded)
         data = serializer.data
-        data['image'] = request.build_absolute_uri(data['image'])
+        data["image"] = request.build_absolute_uri(data["image"])
         return Response(data)
+
 
 class GiftItemRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     queryset = GiftItem.objects.all()
@@ -177,9 +210,9 @@ class GiftItemRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
         instance = self.get_object()
 
         # Get the data from the request
-        name = request.data.get('name')
-        image = request.data.get('image')
-        lucky_draw_system = request.data.get('lucky_draw_system')
+        name = request.data.get("name")
+        image = request.data.get("image")
+        lucky_draw_system = request.data.get("lucky_draw_system")
 
         # Update the instance fields if provided in the request
         if name is not None:
@@ -204,45 +237,51 @@ class GiftItemRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     def perform_destroy(self, instance):
         instance.delete()
 
+
 class RechargeCardListCreateView(generics.ListCreateAPIView):
     serializer_class = RechargeCardSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return RechargeCard.objects.filter(lucky_draw_system__organization=self.request.user.organization)
-    
+        return RechargeCard.objects.filter(
+            lucky_draw_system__organization=self.request.user.organization
+        )
+
     def create(self, request, *args, **kwargs):
-        lucky_draw_system = request.data.get('lucky_draw_system')
-        cardno=request.data.get('cardno')
-        provider=request.data.get('provider')
-        amount=request.data.get('amount')
-        is_assigned=request.data.get('is_assigned')
+        lucky_draw_system = request.data.get("lucky_draw_system")
+        cardno = request.data.get("cardno")
+        provider = request.data.get("provider")
+        amount = request.data.get("amount")
+        is_assigned = request.data.get("is_assigned")
 
         recharge_card = RechargeCard.objects.create(
             lucky_draw_system=lucky_draw_system,
             cardno=cardno,
             provider=provider,
             amount=amount,
-            is_assigned=is_assigned
+            is_assigned=is_assigned,
         )
         recharge_card.save()
         serializer = RechargeCardSerializer(recharge_card)
         return Response(serializer.data)
+
 
 class RechargeCardRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = RechargeCardSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return RechargeCard.objects.filter(lucky_draw_system__organization=self.request.user.organization)
+        return RechargeCard.objects.filter(
+            lucky_draw_system__organization=self.request.user.organization
+        )
 
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
-        lucky_draw_system = request.data.get('lucky_draw_system')
-        cardno = request.data.get('cardno')
-        provider = request.data.get('provider')
-        amount = request.data.get('amount')
-        is_assigned = request.data.get('is_assigned')
+        lucky_draw_system = request.data.get("lucky_draw_system")
+        cardno = request.data.get("cardno")
+        provider = request.data.get("provider")
+        amount = request.data.get("amount")
+        is_assigned = request.data.get("is_assigned")
 
         if lucky_draw_system is not None:
             instance.lucky_draw_system_id = lucky_draw_system
@@ -264,42 +303,46 @@ class RechargeCardRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIVie
         instance.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+
 class IMEINOListCreateView(generics.ListCreateAPIView):
     serializer_class = IMEINOSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
 
-        return IMEINO.objects.filter(lucky_draw_system__organization=self.request.user.organization)
-    
+        return IMEINO.objects.filter(
+            lucky_draw_system__organization=self.request.user.organization
+        )
+
     def create(self, request, *args, **kwargs):
-        lucky_draw_system = request.data.get('lucky_draw_system')
-        imei_no=request.data.get('imei_no')
-        phone_model=request.data.get('phone_model')
-        lucky_draw=LuckyDrawSystem.objects.get(id=lucky_draw_system)
+        lucky_draw_system = request.data.get("lucky_draw_system")
+        imei_no = request.data.get("imei_no")
+        phone_model = request.data.get("phone_model")
+        lucky_draw = LuckyDrawSystem.objects.get(id=lucky_draw_system)
 
         imeino = IMEINO.objects.create(
-            lucky_draw_system=lucky_draw,
-            imei_no=imei_no,
-            phone_model=phone_model
+            lucky_draw_system=lucky_draw, imei_no=imei_no, phone_model=phone_model
         )
         imeino.save()
         serializer = IMEINOSerializer(imeino)
         return Response(serializer.data)
+
 
 class IMEINORetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = IMEINOSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return IMEINO.objects.filter(lucky_draw_system__organization=self.request.user.organization)
+        return IMEINO.objects.filter(
+            lucky_draw_system__organization=self.request.user.organization
+        )
 
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
-        lucky_draw_system = request.data.get('lucky_draw_system')
-        imei_no = request.data.get('imei_no')
-        phone_model = request.data.get('phone_model')
-        
+        lucky_draw_system = request.data.get("lucky_draw_system")
+        imei_no = request.data.get("imei_no")
+        phone_model = request.data.get("phone_model")
+
         if lucky_draw_system is not None:
             lucky_draw = LuckyDrawSystem.objects.get(id=lucky_draw_system)
             instance.lucky_draw_system = lucky_draw
@@ -317,50 +360,56 @@ class IMEINORetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
         instance.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+
 class FixOfferListCreateView(generics.ListCreateAPIView):
     serializer_class = FixOfferSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
 
-        return FixOffer.objects.filter(lucky_draw_system__organization=self.request.user.organization)
-    
+        return FixOffer.objects.filter(
+            lucky_draw_system__organization=self.request.user.organization
+        )
+
     def create(self, request, *args, **kwargs):
-        lucky_draw_system = request.data.get('lucky_draw_system')
-        imei_no=request.data.get('imei_no')
-        quantity=request.data.get('quantity')
-        gift=request.data.get('gift')
+        lucky_draw_system = request.data.get("lucky_draw_system")
+        imei_no = request.data.get("imei_no")
+        quantity = request.data.get("quantity")
+        gift = request.data.get("gift")
 
         fix_offer = FixOffer.objects.create(
             lucky_draw_system=lucky_draw_system,
             imei_no=imei_no,
             quantity=quantity,
-            gift=gift
+            gift=gift,
         )
         fix_offer.save()
         serializer = FixOfferSerializer(fix_offer)
         return Response(serializer.data)
+
 
 class FixOfferRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = FixOfferSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return FixOffer.objects.filter(lucky_draw_system__organization=self.request.user.organization)
+        return FixOffer.objects.filter(
+            lucky_draw_system__organization=self.request.user.organization
+        )
 
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
-        lucky_draw_system = request.data.get('lucky_draw_system')
-        imei_no = request.data.get('imei_no')
-        quantity = request.data.get('quantity')
-        gift = request.data.get('gift')
+        lucky_draw_system = request.data.get("lucky_draw_system")
+        imei_no = request.data.get("imei_no")
+        quantity = request.data.get("quantity")
+        gift = request.data.get("gift")
 
         if lucky_draw_system is not None:
             instance.lucky_draw_system_id = lucky_draw_system
         if imei_no is not None:
             instance.imei_no = imei_no
         if quantity is not None:
-            instance.quantity = quantity
+            instance.daily_quantity = quantity
         if gift is not None:
             instance.gift_id = gift
 
@@ -373,30 +422,33 @@ class FixOfferRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
         instance.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+
 class MobileOfferConditionListCreateView(generics.ListCreateAPIView):
     serializer_class = MobileOfferConditionSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         return MobileOfferCondition.objects.all()
-    
+
     def create(self, request, *args, **kwargs):
-        offer_condition_name = request.data.get('offer_condition_name')
-        condition = request.data.get('condition')
+        offer_condition_name = request.data.get("offer_condition_name")
+        condition = request.data.get("condition")
 
         mobile_type = MobileOfferCondition.objects.create(
-            offer_type_name=offer_condition_name,
-            condition=condition
+            offer_type_name=offer_condition_name, condition=condition
         )
         mobile_type.save()
         serializer = MobileOfferConditionSerializer(mobile_type)
         return Response(serializer.data)
 
-class MobileOfferConditionRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+
+class MobileOfferConditionRetrieveUpdateDestroyView(
+    generics.RetrieveUpdateDestroyAPIView
+):
     queryset = MobileOfferCondition.objects.all()
     serializer_class = MobileOfferConditionSerializer
     permission_classes = [IsAuthenticated]
-    
+
     def get_queryset(self):
         return MobileOfferCondition.objects.all()
 
@@ -407,9 +459,9 @@ class MobileOfferConditionRetrieveUpdateDestroyView(generics.RetrieveUpdateDestr
 
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
-        offer_type_name = request.data.get('offer_type_name', instance.offer_type_name)
-        condition = request.data.get('condition', instance.condition)
-        
+        offer_type_name = request.data.get("offer_type_name", instance.offer_type_name)
+        condition = request.data.get("condition", instance.condition)
+
         instance.offer_type_name = offer_type_name
         instance.condition = condition
         instance.save()
@@ -422,25 +474,28 @@ class MobileOfferConditionRetrieveUpdateDestroyView(generics.RetrieveUpdateDestr
         self.perform_destroy(instance)
         return Response({"message": "Mobile offer condition deleted successfully"})
 
+
 class MobilePhoneOfferListCreateView(generics.ListCreateAPIView):
     serializer_class = MobilePhoneOfferSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         lucky_draw_system_id = self.request.GET["lucky_draw_system_id"]
-        return MobilePhoneOffer.objects.filter(lucky_draw_system__id=lucky_draw_system_id)
+        return MobilePhoneOffer.objects.filter(
+            lucky_draw_system__id=lucky_draw_system_id
+        )
 
     def create(self, request, *args, **kwargs):
         data = request.data
-        lucky_draw_system_id = data.get('lucky_draw_system')
-        start_date = data.get('start_date')
-        end_date = data.get('end_date')
-        daily_quantity = data.get('daily_quantity')
-        type_of_offer = data.get('type_of_offer')
-        offer_condition_value = data.get('offer_condition_value')
-        sale_numbers = data.get('sale_numbers')
-        gift_id = data.get('gift')
-        priority = data.get('priority')
+        lucky_draw_system_id = data.get("lucky_draw_system")
+        start_date = data.get("start_date")
+        end_date = data.get("end_date")
+        daily_quantity = data.get("daily_quantity")
+        type_of_offer = data.get("type_of_offer")
+        offer_condition_value = data.get("offer_condition_value")
+        sale_numbers = data.get("sale_numbers")
+        gift_id = data.get("gift")
+        priority = data.get("priority")
 
         lucky_draw_system = LuckyDrawSystem.objects.get(id=lucky_draw_system_id)
         gift = GiftItem.objects.get(id=gift_id)
@@ -454,19 +509,18 @@ class MobilePhoneOfferListCreateView(generics.ListCreateAPIView):
             offer_condition_value=offer_condition_value,
             sale_numbers=sale_numbers,
             gift=gift,
-            priority=priority
+            priority=priority,
         )
 
-        valid_conditions = data.get('valid_condition', [])
-        
+        valid_conditions = data.get("valid_condition", [])
+
         for condition in valid_conditions:
             condt = MobileOfferCondition.objects.get(id=condition)
             mobile_phone_offer.valid_condition.add(condt)
-        
+
         mobile_phone_offer.save()
         serializer = MobilePhoneOfferSerializer(mobile_phone_offer)
         return Response(serializer.data)
-
 
 
 class MobilePhoneOfferRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
@@ -476,15 +530,15 @@ class MobilePhoneOfferRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAP
 
     def update(self, request, *args, **kwargs):
         data = request.data
-        
-        start_date = data.get('start_date')
-        end_date = data.get('end_date')
-        daily_quantity = data.get('daily_quantity')
-        type_of_offer = data.get('type_of_offer')
-        offer_condition_value = data.get('offer_condition_value')
-        sale_numbers = data.get('sale_numbers')
-        gift_id = data.get('gift')
-        priority = data.get('priority')
+
+        start_date = data.get("start_date")
+        end_date = data.get("end_date")
+        daily_quantity = data.get("daily_quantity")
+        type_of_offer = data.get("type_of_offer")
+        offer_condition_value = data.get("offer_condition_value")
+        sale_numbers = data.get("sale_numbers")
+        gift_id = data.get("gift")
+        priority = data.get("priority")
 
         gift = GiftItem.objects.get(id=gift_id)
 
@@ -499,12 +553,12 @@ class MobilePhoneOfferRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAP
         instance.gift = gift
         instance.priority = priority
 
-        valid_conditions = data.get('valid_condition', [])
+        valid_conditions = data.get("valid_condition", [])
         instance.valid_condition.clear()
         for condition in valid_conditions:
             condt = MobileOfferCondition.objects.get(id=condition)
             instance.valid_condition.add(condt)
-        
+
         instance.save()
         serializer = self.get_serializer(instance)
         return Response(serializer.data)
@@ -512,27 +566,33 @@ class MobilePhoneOfferRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAP
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
         self.perform_destroy(instance)
-        return Response({"message": "Mobile phone offer deleted successfully"}, status=status.HTTP_204_NO_CONTENT)
+        return Response(
+            {"message": "Mobile phone offer deleted successfully"},
+            status=status.HTTP_204_NO_CONTENT,
+        )
+
 
 class RechargeCardOfferListCreateView(generics.ListCreateAPIView):
     serializer_class = RechargeCardOfferSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-    
-        return RechargeCardOffer.objects.filter(lucky_draw_system__organization=self.request.user.organization)
-    
-    def create(self, request, *args, **kwargs):
-        lucky_draw_system = request.data.get('lucky_draw_system')
-        start_date = request.data.get('start_date')
-        end_date = request.data.get('end_date')
-        daily_quantity = request.data.get('daily_quantity')
-        type_of_offer = request.data.get('type_of_offer')
-        offer_condition_value = request.data.get('offer_condition_value')
-        sale_numbers = request.data.get('sale_numbers')
 
-        amount = request.data.get('amount')
-        provider=request.data.get('provider')
+        return RechargeCardOffer.objects.filter(
+            lucky_draw_system__organization=self.request.user.organization
+        )
+
+    def create(self, request, *args, **kwargs):
+        lucky_draw_system = request.data.get("lucky_draw_system")
+        start_date = request.data.get("start_date")
+        end_date = request.data.get("end_date")
+        daily_quantity = request.data.get("daily_quantity")
+        type_of_offer = request.data.get("type_of_offer")
+        offer_condition_value = request.data.get("offer_condition_value")
+        sale_numbers = request.data.get("sale_numbers")
+
+        amount = request.data.get("amount")
+        provider = request.data.get("provider")
 
         recharge_card_offer = RechargeCardOffer.objects.create(
             lucky_draw_system=lucky_draw_system,
@@ -543,14 +603,15 @@ class RechargeCardOfferListCreateView(generics.ListCreateAPIView):
             offer_condition_value=offer_condition_value,
             sale_numbers=sale_numbers,
             amount=amount,
-            provider=provider
+            provider=provider,
         )
-        valid_conditions = request.data.get('valid_condition', [])
+        valid_conditions = request.data.get("valid_condition", [])
         recharge_card_offer.valid_condition.set(valid_conditions)
 
         recharge_card_offer.save()
         serializer = RechargeCardOfferSerializer(recharge_card_offer)
         return Response(serializer.data)
+
 
 class RechargeCardOfferRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     queryset = RechargeCardOffer.objects.all()
@@ -566,18 +627,26 @@ class RechargeCardOfferRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyA
         instance = self.get_object()
 
         # Get updated data or default to existing values
-        instance.lucky_draw_system = request.data.get('lucky_draw_system', instance.lucky_draw_system)
-        instance.start_date = request.data.get('start_date', instance.start_date)
-        instance.end_date = request.data.get('end_date', instance.end_date)
-        instance.daily_quantity = request.data.get('daily_quantity', instance.daily_quantity)
-        instance.type_of_offer = request.data.get('type_of_offer', instance.type_of_offer)
-        instance.offer_condition_value = request.data.get('offer_condition_value', instance.offer_condition_value)
-        instance.sale_numbers = request.data.get('sale_numbers', instance.sale_numbers)
-        instance.amount = request.data.get('amount', instance.amount)
-        instance.provider = request.data.get('provider', instance.provider)
+        instance.lucky_draw_system = request.data.get(
+            "lucky_draw_system", instance.lucky_draw_system
+        )
+        instance.start_date = request.data.get("start_date", instance.start_date)
+        instance.end_date = request.data.get("end_date", instance.end_date)
+        instance.daily_quantity = request.data.get(
+            "daily_quantity", instance.daily_quantity
+        )
+        instance.type_of_offer = request.data.get(
+            "type_of_offer", instance.type_of_offer
+        )
+        instance.offer_condition_value = request.data.get(
+            "offer_condition_value", instance.offer_condition_value
+        )
+        instance.sale_numbers = request.data.get("sale_numbers", instance.sale_numbers)
+        instance.amount = request.data.get("amount", instance.amount)
+        instance.provider = request.data.get("provider", instance.provider)
 
         # Handling many-to-many field (valid_condition)
-        valid_conditions = request.data.get('valid_condition', [])
+        valid_conditions = request.data.get("valid_condition", [])
         if valid_conditions:
             instance.valid_condition.set(valid_conditions)
 
@@ -591,27 +660,32 @@ class RechargeCardOfferRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyA
         self.perform_destroy(instance)
         return Response({"message": "Recharge card offer deleted successfully"})
 
+
 class ElectronicOfferConditionListCreateView(generics.ListCreateAPIView):
     serializer_class = ElectronicShopOfferConditionSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return ElectronicOfferCondition.objects.filter(lucky_draw_system__organization=self.request.user.organization)
+        return ElectronicOfferCondition.objects.filter(
+            lucky_draw_system__organization=self.request.user.organization
+        )
 
     def create(self, request, *args, **kwargs):
-        offer_condition_name = request.data.get('offer_condition_name')
-        condition = request.data.get('condition')
+        offer_condition_name = request.data.get("offer_condition_name")
+        condition = request.data.get("condition")
 
         electronic_offer_condition = ElectronicOfferCondition.objects.create(
-            offer_condition_name=offer_condition_name,
-            condition=condition
+            offer_condition_name=offer_condition_name, condition=condition
         )
         electronic_offer_condition.save()
-        
-        serializer = self.get_serializer(electronic_offer_condition)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)   
 
-class ElectronicOfferConditionRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+        serializer = self.get_serializer(electronic_offer_condition)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+class ElectronicOfferConditionRetrieveUpdateDestroyView(
+    generics.RetrieveUpdateDestroyAPIView
+):
     queryset = ElectronicOfferCondition.objects.all()
     serializer_class = ElectronicShopOfferConditionSerializer
     permission_classes = [IsAuthenticated]
@@ -623,8 +697,10 @@ class ElectronicOfferConditionRetrieveUpdateDestroyView(generics.RetrieveUpdateD
 
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
-        offer_condition_name = request.data.get('offer_condition_name', instance.offer_condition_name)
-        condition = request.data.get('condition', instance.condition)
+        offer_condition_name = request.data.get(
+            "offer_condition_name", instance.offer_condition_name
+        )
+        condition = request.data.get("condition", instance.condition)
 
         instance.offer_condition_name = offer_condition_name
         instance.condition = condition
@@ -636,27 +712,31 @@ class ElectronicOfferConditionRetrieveUpdateDestroyView(generics.RetrieveUpdateD
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
         self.perform_destroy(instance)
-        return Response({"message": "Electronic offer condition deleted successfully"}, status=status.HTTP_204_NO_CONTENT)
+        return Response(
+            {"message": "Electronic offer condition deleted successfully"},
+            status=status.HTTP_204_NO_CONTENT,
+        )
+
 
 class ElectronicsShopOfferListCreateView(generics.ListCreateAPIView):
     serializer_class = ElectronicsShopOfferSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return ElectronicsShopOffer.objects.filter(lucky_draw_system__organization=self.request.user.organization)
+        return ElectronicsShopOffer.objects.filter(
+            lucky_draw_system__organization=self.request.user.organization
+        )
 
     def create(self, request, *args, **kwargs):
-        lucky_draw_system_id = request.data.get('lucky_draw_system')
-        start_date = request.data.get('start_date')
-        end_date = request.data.get('end_date')
-        daily_quantity = request.data.get('daily_quantity')
-        type_of_offer = request.data.get('type_of_offer')
-        offer_condition_value = request.data.get('offer_condition_value')
-        sale_numbers = request.data.get('sale_numbers')
-       
-        
-        lucky_draw_system=LuckyDrawSystem.objects.get(id=lucky_draw_system_id)
+        lucky_draw_system_id = request.data.get("lucky_draw_system")
+        start_date = request.data.get("start_date")
+        end_date = request.data.get("end_date")
+        daily_quantity = request.data.get("daily_quantity")
+        type_of_offer = request.data.get("type_of_offer")
+        offer_condition_value = request.data.get("offer_condition_value")
+        sale_numbers = request.data.get("sale_numbers")
 
+        lucky_draw_system = LuckyDrawSystem.objects.get(id=lucky_draw_system_id)
 
         electronics_shop_offer = ElectronicsShopOffer.objects.create(
             lucky_draw_system=lucky_draw_system,
@@ -669,15 +749,18 @@ class ElectronicsShopOfferListCreateView(generics.ListCreateAPIView):
         )
 
         # Handle many-to-many relationship for valid_condition
-        valid_conditions = request.data.get('valid_condition', [])
+        valid_conditions = request.data.get("valid_condition", [])
         electronics_shop_offer.valid_condition.set(valid_conditions)
 
         electronics_shop_offer.save()
-        
+
         serializer = self.get_serializer(electronics_shop_offer)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
-  
-class ElectronicsShopOfferRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+
+
+class ElectronicsShopOfferRetrieveUpdateDestroyView(
+    generics.RetrieveUpdateDestroyAPIView
+):
     queryset = ElectronicsShopOffer.objects.all()
     serializer_class = ElectronicsShopOfferSerializer
     permission_classes = [IsAuthenticated]
@@ -689,20 +772,30 @@ class ElectronicsShopOfferRetrieveUpdateDestroyView(generics.RetrieveUpdateDestr
 
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
-        
+
         # Updating the instance fields with provided data or using existing values
-        lucky_draw_system_id = request.data.get('lucky_draw_system', instance.lucky_draw_system.id)
-        instance.lucky_draw_system = LuckyDrawSystem.objects.get(id=lucky_draw_system_id)
-        
-        instance.start_date = request.data.get('start_date', instance.start_date)
-        instance.end_date = request.data.get('end_date', instance.end_date)
-        instance.daily_quantity = request.data.get('daily_quantity', instance.daily_quantity)
-        instance.type_of_offer = request.data.get('type_of_offer', instance.type_of_offer)
-        instance.offer_condition_value = request.data.get('offer_condition_value', instance.offer_condition_value)
-        instance.sale_numbers = request.data.get('sale_numbers', instance.sale_numbers)
+        lucky_draw_system_id = request.data.get(
+            "lucky_draw_system", instance.lucky_draw_system.id
+        )
+        instance.lucky_draw_system = LuckyDrawSystem.objects.get(
+            id=lucky_draw_system_id
+        )
+
+        instance.start_date = request.data.get("start_date", instance.start_date)
+        instance.end_date = request.data.get("end_date", instance.end_date)
+        instance.daily_quantity = request.data.get(
+            "daily_quantity", instance.daily_quantity
+        )
+        instance.type_of_offer = request.data.get(
+            "type_of_offer", instance.type_of_offer
+        )
+        instance.offer_condition_value = request.data.get(
+            "offer_condition_value", instance.offer_condition_value
+        )
+        instance.sale_numbers = request.data.get("sale_numbers", instance.sale_numbers)
 
         # Handling many-to-many relationship for valid_condition
-        valid_conditions = request.data.get('valid_condition', [])
+        valid_conditions = request.data.get("valid_condition", [])
         if valid_conditions:
             instance.valid_condition.set(valid_conditions)
 
@@ -714,55 +807,63 @@ class ElectronicsShopOfferRetrieveUpdateDestroyView(generics.RetrieveUpdateDestr
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
         self.perform_destroy(instance)
-        return Response({"message": "Electronics shop offer deleted successfully"}, status=status.HTTP_204_NO_CONTENT)
+        return Response(
+            {"message": "Electronics shop offer deleted successfully"},
+            status=status.HTTP_204_NO_CONTENT,
+        )
+
 
 class CustomerListCreateView(generics.ListCreateAPIView):
     serializer_class = CustomerSerializer
 
     def get_queryset(self):
-        return Customer.objects.filter(lucky_draw_system__organization=self.request.user.organization)
-    
+        return Customer.objects.filter(
+            lucky_draw_system__organization=self.request.user.organization
+        )
+
     def create(self, request, *args, **kwargs):
-        lucky_draw_system = request.data.get('lucky_draw_system')
-        customer_name=request.data.get('customer_name')
-        shop_name=request.data.get('shop_name')
-        sold_area=request.data.get('sold_area')
-        phone_number=request.data.get('phone_number')
+        lucky_draw_system = request.data.get("lucky_draw_system")
+        customer_name = request.data.get("customer_name")
+        shop_name = request.data.get("shop_name")
+        sold_area = request.data.get("sold_area")
+        phone_number = request.data.get("phone_number")
         if Customer.objects.filter(phone_number=phone_number).exists():
             return Response(
                 {"error": "A customer with this phone number already exists."},
-                status=status.HTTP_400_BAD_REQUEST
+                status=status.HTTP_400_BAD_REQUEST,
             )
-           
-        imei=request.data.get('imei')
+
+        imei = request.data.get("imei")
 
         if not imei:
-            return Response({"error": "IMEI is required."}, status=status.HTTP_400_BAD_REQUEST)
-        print (imei)
+            return Response(
+                {"error": "IMEI is required."}, status=status.HTTP_400_BAD_REQUEST
+            )
+        print(imei)
         try:
             imei_obj = IMEINO.objects.get(imei_no=imei, used=False)
         except IMEINO.DoesNotExist:
             return Response(
                 {"error": "Invalid IMEI or IMEI already used."},
-                status=status.HTTP_400_BAD_REQUEST
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
-        imeii=IMEINO.objects.get(imei_no=imei)
-        phone_model=imeii.phone_model
+        imeii = IMEINO.objects.get(imei_no=imei)
+        phone_model = imeii.phone_model
 
         if Customer.objects.filter(imei=imei).exists():
             return Response(
                 {"error": "A customer with this IMEI already exists."},
-                status=status.HTTP_400_BAD_REQUEST
+                status=status.HTTP_400_BAD_REQUEST,
             )
-        
-        how_know_about_campaign=request.data.get('how_know_about_campaign')
-        profession=request.data.get('profession')
 
-        imei_obj.used=True
+        how_know_about_campaign = request.data.get("how_know_about_campaign")
+        profession = request.data.get("profession")
+
+        imei_obj.used = True
         imei_obj.save()
 
-        lucky_draw=LuckyDrawSystem.objects.get(id=lucky_draw_system)
+        lucky_draw = LuckyDrawSystem.objects.get(id=lucky_draw_system)
 
         customer = Customer.objects.create(
             lucky_draw_system=lucky_draw,
@@ -773,60 +874,60 @@ class CustomerListCreateView(generics.ListCreateAPIView):
             phone_model=phone_model,
             imei=imei,
             how_know_about_campaign=how_know_about_campaign,
-            profession=profession
+            profession=profession,
         )
 
         self.assign_gift(customer)
-      
+
         serializer = CustomerGiftSerializer(customer)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
-    
-    def assign_gift(self,customer):
-        today_date=timezone.now().date()
-        lucky_draw_system=customer.lucky_draw_system
 
-        """ sales_today,created = Sales.objects.get_or_create(
+    def assign_gift(self, customer):
+        today_date = timezone.now().date()
+        lucky_draw_system = customer.lucky_draw_system
+
+        sales_today, created = Sales.objects.get_or_create(
             date=today_date,
             lucky_draw_system=lucky_draw_system,
-            sales_count=0
-        ) """
+            defaults={"sales_count": 0},
+        )
 
-        if not Sales.objects.filter(date=today_date, lucky_draw_system=lucky_draw_system).exists():
+        """ if not Sales.objects.filter(date=today_date, lucky_draw_system=lucky_draw_system).exists():
             sales_today = Sales.objects.create(
                 date=today_date,
                 lucky_draw_system=lucky_draw_system,
                 sales_count=0
             )
         else:
-            sales_today = Sales.objects.get(date=today_date, lucky_draw_system=lucky_draw_system,sales_count=0)
+            sales_today = Sales.objects.get(date=today_date, lucky_draw_system=lucky_draw_system,sales_count=0) """
 
         sales_today.sales_count += 1
         sales_today.save()
 
         sales_count = sales_today.sales_count
         phone_model = customer.phone_model
-        
-        #Fixed Offers
+
+        # Fixed Offers
         fixed_offer = FixOffer.objects.filter(
-            lucky_draw_system=lucky_draw_system,
-            imei_no=customer.imei,
-            quantity__gt=0
+            lucky_draw_system=lucky_draw_system, imei_no=customer.imei, quantity__gt=0
         ).first()
 
         if fixed_offer:
             customer.gift = fixed_offer.gift
-            customer.prize_details = f"Congratulations! You've won {fixed_offer.gift.name}"
+            customer.prize_details = (
+                f"Congratulations! You've won {fixed_offer.gift.name}"
+            )
             customer.save()
-            fixed_offer.quantity -= 1
+            fixed_offer.daily_quantity -= 1
             fixed_offer.save()
             return
-        
+
         mobile_offers = MobilePhoneOffer.objects.filter(
             lucky_draw_system=lucky_draw_system,
             start_date__lte=today_date,
             end_date__gte=today_date,
-            daily_quantity__gt=0
-        ).order_by('priority')
+            daily_quantity__gt=0,
+        ).order_by("priority")
 
         for offer in mobile_offers:
             condition_met = self.check_offer_condition(offer, sales_count)
@@ -834,9 +935,10 @@ class CustomerListCreateView(generics.ListCreateAPIView):
 
             if condition_met and validto_check:
                 customer.gift = offer.gift
-                customer.prize_details = f"Congratulations! You've won {offer.gift.name}"
+                customer.prize_details = (
+                    f"Congratulations! You've won {offer.gift.name}"
+                )
                 customer.save()
-                offer.quantity -= 1
                 offer.save()
                 return
 
@@ -845,7 +947,7 @@ class CustomerListCreateView(generics.ListCreateAPIView):
             lucky_draw_system=lucky_draw_system,
             start_date__lte=today_date,
             end_date__gte=today_date,
-            daily_quantity__gt=0
+            daily_quantity__gt=0,
         )
 
         for offer in recharge_offers:
@@ -857,7 +959,7 @@ class CustomerListCreateView(generics.ListCreateAPIView):
                     lucky_draw_system=lucky_draw_system,
                     provider=offer.provider,
                     amount=offer.amount,
-                    is_assigned=False
+                    is_assigned=False,
                 ).first()
 
                 if recharge_card:
@@ -867,7 +969,6 @@ class CustomerListCreateView(generics.ListCreateAPIView):
                     customer.save()
                     recharge_card.is_assigned = True
                     recharge_card.save()
-                    offer.quantity -= 1
                     offer.save()
                     return
 
@@ -876,7 +977,7 @@ class CustomerListCreateView(generics.ListCreateAPIView):
             lucky_draw_system=lucky_draw_system,
             start_date__lte=today_date,
             end_date__gte=today_date,
-            daily_quantity_gt=0
+            daily_quantity__gt=0,
         )
 
         for offer in electronic_offers:
@@ -887,7 +988,6 @@ class CustomerListCreateView(generics.ListCreateAPIView):
                 customer.gift = offer.gift
                 customer.prize_details = f"Congratulations! You've won {offer.gift.name} from our Electronics Shop Offer!"
                 customer.save()
-                offer.quantity -= 1
                 offer.save()
                 return
 
@@ -896,69 +996,136 @@ class CustomerListCreateView(generics.ListCreateAPIView):
         customer.save()
 
     def check_offer_condition(self, offer, sales_count):
+        today_date = timezone.now().date()
         if offer.type_of_offer == "After every certain sale":
-            return sales_count % int(offer.offer_condition_value) == 0
+            todayscount = Customer.objects.filter(
+                date_of_purchase=today_date, gift=offer.gift
+            ).count()
+            return (
+                sales_count % int(offer.offer_condition_value) == 0
+                and todayscount < offer.daily_quantity
+            )
         elif offer.type_of_offer == "At certain sale position":
             return str(sales_count) in offer.sale_numbers
-        return False  # If the offer type doesn't match any condition, it's not applicable
+        return (
+            False  # If the offer type doesn't match any condition, it's not applicable
+        )
 
     def check_validto_condition(self, offer, phone_model):
-        if hasattr(offer, 'valid_condition'):
+        if hasattr(offer, "valid_condition"):
             conditions = offer.valid_condition.all()
-            return not conditions or any(phone_model.startswith(cond.condition) for cond in conditions)
+            return not conditions or any(
+                phone_model.startswith(cond.condition) for cond in conditions
+            )
         return True  # If there's no valid_condition, assume it's valid for all
-    
-    
-@api_view(['POST'])
+
+
+@api_view(["GET"])
+def GetGiftList(request):
+    lucky_draw_system_id = request.GET["lucky_draw_system_id"]
+    lucky_draw_system = LuckyDrawSystem.objects.get(id=lucky_draw_system_id)
+    gifts = GiftItem.objects.filter(lucky_draw_system=lucky_draw_system)
+    serializer = GiftItemSerializer(gifts, many=True)
+    data = serializer.data
+    # data["image"] = request.build_absolute_uri(data["image"])
+    for gift in data:
+        gift["image"] = request.build_absolute_uri(gift["image"])
+    return Response(data)
+
+
+@api_view(["POST"])
 def UploadImeiBulk(request):
 
-    if request.method == 'POST':
-        file = request.FILES['file']
-        lucky_draw_system_id = request.data.get('lucky_draw_system')
+    if request.method == "POST":
+        file = request.FILES["file"]
+        lucky_draw_system_id = request.data.get("lucky_draw_system")
         lucky_draw_system = LuckyDrawSystem.objects.get(id=lucky_draw_system_id)
 
-        if file.name.endswith('.csv'):
-            data_set = file.read().decode('UTF-8')
+        if file.name.endswith(".csv"):
+            data_set = file.read().decode("UTF-8")
             io_string = io.StringIO(data_set)
             next(io_string)
-            for column in csv.reader(io_string, delimiter=',', quotechar="|"):
+            for column in csv.reader(io_string, delimiter=",", quotechar="|"):
                 if not IMEINO.objects.filter(imei_no=column[0]).exists():
                     imei = IMEINO()
-                    imei.imei_no = column[0]             
+                    imei.imei_no = column[0]
                     imei.lucky_draw_system = lucky_draw_system
                     imei.phone_model = column[1]
                     imei.save()
-            return Response({"message": "IMEI numbers uploaded successfully"}, status=status.HTTP_201_CREATED)
+            return Response(
+                {"message": "IMEI numbers uploaded successfully"},
+                status=status.HTTP_201_CREATED,
+            )
         else:
-            return Response({"error": "Invalid file format. Please upload a CSV file."}, status=status.HTTP_400_BAD_REQUEST)
-    return Response({"error": "Invalid request method. Please use POST method."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"error": "Invalid file format. Please upload a CSV file."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+    return Response(
+        {"error": "Invalid request method. Please use POST method."},
+        status=status.HTTP_400_BAD_REQUEST,
+    )
 
-@api_view(['POST'])
+
+@api_view(["POST"])
 def download_customers_detail(request):
-    if request.method == 'POST':
-        start_date = request.GET.get('start_date', None)
-        end_date = request.GET.get('end_date', None)
+    if request.method == "POST":
+        start_date = request.GET.get("start_date", None)
+        end_date = request.GET.get("end_date", None)
 
         # Create a base queryset for customers with gifts
         queryset = Customer.objects.all()
 
         if start_date and end_date:
             # Filter data within the specified date range
-            queryset = queryset.filter(
-                date_of_purchase__range=(start_date, end_date))
+            queryset = queryset.filter(date_of_purchase__range=(start_date, end_date))
 
         # Create a CSV response
-        response = HttpResponse(content_type='text/csv')
-        response['Content-Disposition'] = 'attachment; filename="customers_detail.csv"'
+        response = HttpResponse(content_type="text/csv")
+        response["Content-Disposition"] = 'attachment; filename="customers_detail.csv"'
 
         # Create a CSV writer and write the header row
         writer = csv.writer(response)
-        writer.writerow(['Customer Name', 'Shop Name', 'Sold Area', 'Phone Number', 'Phone Model',
-                        'Sale Status', 'Prize Details', 'IMEI', 'Gift', 'Date of Purchase', 'How Know About Campaign', 'Recharge Card','NTC Recharge Card', 'Amount of Ntc Card', 'Profession'])
+        writer.writerow(
+            [
+                "Customer Name",
+                "Shop Name",
+                "Sold Area",
+                "Phone Number",
+                "Phone Model",
+                "Sale Status",
+                "Prize Details",
+                "IMEI",
+                "Gift",
+                "Date of Purchase",
+                "How Know About Campaign",
+                "Recharge Card",
+                "NTC Recharge Card",
+                "Amount of Ntc Card",
+                "Profession",
+            ]
+        )
 
         # Write the data rows
         for customer in queryset:
-            writer.writerow([customer.customer_name, customer.shop_name, customer.sold_area, customer.phone_number, customer.phone_model,
-                            customer.sale_status, customer.prize_details, customer.imei, customer.gift, customer.date_of_purchase, customer.how_know_about_campaign, customer.recharge_card,customer.ntc_recharge_card, customer.amount_of_card, customer.profession])
+            writer.writerow(
+                [
+                    customer.customer_name,
+                    customer.shop_name,
+                    customer.sold_area,
+                    customer.phone_number,
+                    customer.phone_model,
+                    customer.sale_status,
+                    customer.prize_details,
+                    customer.imei,
+                    customer.gift,
+                    customer.date_of_purchase,
+                    customer.how_know_about_campaign,
+                    customer.recharge_card,
+                    customer.ntc_recharge_card,
+                    customer.amount_of_card,
+                    customer.profession,
+                ]
+            )
 
         return response

@@ -106,6 +106,8 @@ urlpatterns = [
         views.download_customers_detail,
         name="download-customer-details",
     ),
+    # Get all gift list
+    path("get-gift-list/", views.GetGiftList, name="get-gift-list"),
     # Upload IMEINo
     path("upload-imeino/", views.UploadImeiBulk, name="upload-imeino"),
 ]
