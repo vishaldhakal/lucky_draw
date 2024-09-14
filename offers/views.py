@@ -880,7 +880,9 @@ class CustomerListCreateView(generics.ListCreateAPIView):
         self.assign_gift(customer)
 
         serializer = CustomerGiftSerializer(customer)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        data = serializer.data
+        data["gift"]["image"] = request.build_absolute_uri(data["gift"]["image"])
+        return Response(data, status=status.HTTP_201_CREATED)
 
     def assign_gift(self, customer):
         today_date = timezone.now().date()
