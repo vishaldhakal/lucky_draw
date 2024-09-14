@@ -720,11 +720,9 @@ class CustomerListCreateView(generics.ListCreateAPIView):
     serializer_class = CustomerSerializer
 
     def get_queryset(self):
-
         return Customer.objects.filter(lucky_draw_system__organization=self.request.user.organization)
     
     def create(self, request, *args, **kwargs):
-
         lucky_draw_system = request.data.get('lucky_draw_system')
         customer_name=request.data.get('customer_name')
         shop_name=request.data.get('shop_name')
@@ -787,13 +785,21 @@ class CustomerListCreateView(generics.ListCreateAPIView):
         today_date=timezone.now().date()
         lucky_draw_system=customer.lucky_draw_system
 
-        sales_today,created = Sales.objects.get_or_create(
+        """ sales_today,created = Sales.objects.get_or_create(
             date=today_date,
             lucky_draw_system=lucky_draw_system,
-            defaults={
-                'sales_count':0
-            }
-        )
+            sales_count=0
+        ) """
+
+        if not Sales.objects.filter(date=today_date, lucky_draw_system=lucky_draw_system).exists():
+            sales_today = Sales.objects.create(
+                date=today_date,
+                lucky_draw_system=lucky_draw_system,
+                sales_count=0
+            )
+        else:
+            sales_today = Sales.objects.get(date=today_date, lucky_draw_system=lucky_draw_system,sales_count=0)
+
         sales_today.sales_count += 1
         sales_today.save()
 
@@ -815,12 +821,11 @@ class CustomerListCreateView(generics.ListCreateAPIView):
             fixed_offer.save()
             return
         
-            # Check Mobile Phone Offers
         mobile_offers = MobilePhoneOffer.objects.filter(
             lucky_draw_system=lucky_draw_system,
             start_date__lte=today_date,
             end_date__gte=today_date,
-            quantity__gt=0
+            daily_quantity__gt=0
         ).order_by('priority')
 
         for offer in mobile_offers:
@@ -840,7 +845,7 @@ class CustomerListCreateView(generics.ListCreateAPIView):
             lucky_draw_system=lucky_draw_system,
             start_date__lte=today_date,
             end_date__gte=today_date,
-            quantity__gt=0
+            daily_quantity__gt=0
         )
 
         for offer in recharge_offers:
@@ -871,7 +876,7 @@ class CustomerListCreateView(generics.ListCreateAPIView):
             lucky_draw_system=lucky_draw_system,
             start_date__lte=today_date,
             end_date__gte=today_date,
-            quantity__gt=0
+            daily_quantity_gt=0
         )
 
         for offer in electronic_offers:
@@ -917,7 +922,7 @@ def UploadImeiBulk(request):
             io_string = io.StringIO(data_set)
             next(io_string)
             for column in csv.reader(io_string, delimiter=',', quotechar="|"):
-                if not IMEINO.objects.filter(imei_no=imei.imei_no).exists():
+                if not IMEINO.objects.filter(imei_no=column[0]).exists():
                     imei = IMEINO()
                     imei.imei_no = column[0]             
                     imei.lucky_draw_system = lucky_draw_system
