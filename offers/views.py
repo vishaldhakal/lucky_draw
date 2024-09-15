@@ -18,7 +18,6 @@ from .serializers import (
     ElectronicsShopOfferSerializer,
     GetOrganiazationDetail,
     CustomerGiftSerializer,
-    TermsAndConditionsSerializer
 )
 from .models import (
     Sales,
