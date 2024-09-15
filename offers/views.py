@@ -880,7 +880,8 @@ class CustomerListCreateView(generics.ListCreateAPIView):
 
         serializer = CustomerGiftSerializer(customer)
         data = serializer.data
-        data["gift"]["image"] = request.build_absolute_uri(data["gift"]["image"])
+        if (customer.gift != None) and (customer.gift.image != ""):
+            data["gift"]["image"] = request.build_absolute_uri(data["gift"]["image"])
         return Response(data, status=status.HTTP_201_CREATED)
 
     def assign_gift(self, customer):
@@ -1001,7 +1002,6 @@ class CustomerListCreateView(generics.ListCreateAPIView):
 
     def check_offer_condition(self, offer, sales_count):
         today_date = timezone.now().date()
-
                 
         if offer.type_of_offer == "After every certain sale":
             todayscount = Customer.objects.filter(
