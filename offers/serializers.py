@@ -42,6 +42,9 @@ class LuckyDrawSystemSerializer(serializers.ModelSerializer):
             "type",
             "start_date",
             "end_date",
+            'how_to_participate',
+            'redeem_condition',
+            "terms_and_conditions",
         ]
         read_only_fields = ["created_at", "updated_at"]
 
