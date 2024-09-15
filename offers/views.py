@@ -18,6 +18,7 @@ from .serializers import (
     ElectronicsShopOfferSerializer,
     GetOrganiazationDetail,
     CustomerGiftSerializer,
+    TermsAndConditionsSerializer
 )
 from .models import (
     Sales,
@@ -75,7 +76,6 @@ class LuckyDrawSystemListCreateView(generics.ListCreateAPIView):
         type = request.data.get("type")
         start_date = request.data.get("start_date")
         end_date = request.data.get("end_date")
-        uuid_key = request.data.get("uuid_key")
         how_to_participate = request.data.get("how_to_participate")
         redeem_condition = request.data.get("redeem_condition")
         terms_and_conditions = request.data.get("terms_and_conditions")
@@ -920,7 +920,7 @@ class CustomerListCreateView(generics.ListCreateAPIView):
                 f"Congratulations! You've won {fixed_offer.gift.name}"
             )
             customer.save()
-            fixed_offer.daily_quantity -= 1
+            fixed_offer.quantity -= 1
             fixed_offer.save()
             return
 
@@ -940,6 +940,7 @@ class CustomerListCreateView(generics.ListCreateAPIView):
                 customer.prize_details = (
                     f"Congratulations! You've won {offer.gift.name}"
                 )
+                
                 customer.save()
                 offer.save()
                 return
@@ -970,6 +971,7 @@ class CustomerListCreateView(generics.ListCreateAPIView):
                     customer.prize_details = f"Congratulations! You've won {offer.provider} recharge card worth {offer.amount}"
                     customer.save()
                     recharge_card.is_assigned = True
+                    
                     recharge_card.save()
                     offer.save()
                     return
@@ -990,6 +992,7 @@ class CustomerListCreateView(generics.ListCreateAPIView):
                 customer.gift = offer.gift
                 customer.prize_details = f"Congratulations! You've won {offer.gift.name} from our Electronics Shop Offer!"
                 customer.save()
+                
                 offer.save()
                 return
 
@@ -999,6 +1002,8 @@ class CustomerListCreateView(generics.ListCreateAPIView):
 
     def check_offer_condition(self, offer, sales_count):
         today_date = timezone.now().date()
+
+                
         if offer.type_of_offer == "After every certain sale":
             todayscount = Customer.objects.filter(
                 date_of_purchase=today_date, gift=offer.gift
@@ -1014,12 +1019,21 @@ class CustomerListCreateView(generics.ListCreateAPIView):
         )
 
     def check_validto_condition(self, offer, phone_model):
-        if hasattr(offer, "valid_condition"):
-            conditions = offer.valid_condition.all()
-            return not conditions or any(
-                phone_model.startswith(cond.condition) for cond in conditions
-            )
-        return True  # If there's no valid_condition, assume it's valid for all
+        if not offer.valid_condition.exists():
+            return True  # If there are no valid conditions, the offer is applicable to all devices
+        
+        for condition in offer.valid_condition.all():
+            if phone_model.startswith(condition.condition):
+                return True
+
+        return False  # If there are valid conditions but no match, the offer is not valid for this phone model
+        
+        # if hasattr(offer, "valid_condition"):
+        #     conditions = offer.valid_condition.all()
+        #     return not conditions or any(
+        #         phone_model.startswith(cond.condition) for cond in conditions
+        #     )
+        # return True  # If there's no valid_condition, assume it's valid for all
 
 
 @api_view(["GET"])
