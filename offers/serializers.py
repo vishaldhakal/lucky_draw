@@ -135,5 +135,6 @@ class CustomerGiftSerializer(serializers.ModelSerializer):
             "phone_model",
             "imei",
             "gift",
+            "email",
             "date_of_purchase",
         ]

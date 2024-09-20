@@ -826,6 +826,7 @@ class CustomerListCreateView(generics.ListCreateAPIView):
         shop_name = request.data.get("shop_name")
         sold_area = request.data.get("sold_area")
         phone_number = request.data.get("phone_number")
+        email = request.data.get("email")
         if Customer.objects.filter(phone_number=phone_number).exists():
             return Response(
                 {"error": "A customer with this phone number already exists."},
@@ -870,6 +871,7 @@ class CustomerListCreateView(generics.ListCreateAPIView):
             shop_name=shop_name,
             sold_area=sold_area,
             phone_number=phone_number,
+            email=email,
             phone_model=phone_model,
             imei=imei,
             how_know_about_campaign=how_know_about_campaign,
