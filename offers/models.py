@@ -162,11 +162,14 @@ class Customer(models.Model):
         ("Facebook Ads", "Facebook Ads"),
         ("Retail Shop", "Retail Shop"),
         ("Google Ads", "Google Ads"),
+        ("Friends Recommendation", "Friends Recommendation"),
+        ("Youtube", "Youtube"),
         ("Others", "Others"),
     ]
 
     lucky_draw_system = models.ForeignKey(LuckyDrawSystem, on_delete=models.CASCADE, related_name='customers')
     customer_name = models.CharField(max_length=400)
+    email=models.EmailField(blank=True, null=True)
     shop_name = models.TextField()
     sold_area = models.CharField(max_length=800)
     phone_number = models.CharField(max_length=20)
@@ -176,7 +179,7 @@ class Customer(models.Model):
     gift = models.ForeignKey(GiftItem, on_delete=models.SET_NULL, null=True)
     imei = models.CharField(max_length=400, blank=True)
     date_of_purchase = models.DateField(auto_now_add=True)
-    how_know_about_campaign = models.CharField(max_length=20, choices=CAMPAIGN_CHOICES)
+    how_know_about_campaign = models.CharField(max_length=50, choices=CAMPAIGN_CHOICES)
     recharge_card = models.ForeignKey(RechargeCard, on_delete=models.SET_NULL, null=True, related_name="customers")
     ntc_recharge_card = models.BooleanField(default=False)
     amount_of_card = models.PositiveIntegerField(default=50, validators=[MinValueValidator(50), MaxValueValidator(500)])
