@@ -110,6 +110,7 @@ class CustomerSerializer(serializers.ModelSerializer):
         fields = [
             "lucky_draw_system",
             "customer_name",
+            "email",
             "shop_name",
             "sold_area",
             "phone_number",
@@ -136,4 +137,7 @@ class CustomerGiftSerializer(serializers.ModelSerializer):
             "imei",
             "gift",
             "date_of_purchase",
+            "recharge_card",
+            "ntc_recharge_card",
+            "amount_of_card",
         ]

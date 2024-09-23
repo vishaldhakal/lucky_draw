@@ -49,22 +49,6 @@ class GiftItem(models.Model):
     def __str__(self):
         return self.name
 
-class RechargeCard(models.Model):
-    AMOUNT_CHOICES = [(50, "50"), (100, "100"), (200, "200"), (500, "500")]
-    PROVIDER_CHOICES = [
-        ("Ncell", "Ncell"),
-        ("Ntc", "Ntc"),
-        ("Smart Cell", "Smart Cell"),
-        ("Others", "Others"),
-    ]
-    lucky_draw_system = models.ForeignKey(LuckyDrawSystem, on_delete=models.CASCADE, related_name='recharge_cards')
-    cardno = models.CharField(max_length=400, unique=True)
-    provider = models.CharField(max_length=20, choices=PROVIDER_CHOICES)
-    amount = models.IntegerField(choices=AMOUNT_CHOICES)
-    is_assigned = models.BooleanField(default=False)
-
-    def __str__(self):
-        return f"{self.provider} - {self.cardno}"
 
 class IMEINO(models.Model):
     lucky_draw_system = models.ForeignKey(LuckyDrawSystem, on_delete=models.CASCADE, related_name='imei_numbers')
@@ -109,7 +93,7 @@ class MobileOfferCondition(models.Model):
     condition=models.CharField(max_length=100)
 
     def __str__(self):
-        return f"{self.offer_type_name} (Condition: {self.condition})"
+        return f"{self.offer_condition_name} (Condition: {self.condition})"
 
 class MobilePhoneOffer(BaseOffer):
     gift = models.ForeignKey(GiftItem, on_delete=models.CASCADE)
@@ -121,13 +105,29 @@ class MobilePhoneOffer(BaseOffer):
 
     class Meta:
         ordering = ("start_date", "priority")
+class RechargeCard(models.Model):
+    AMOUNT_CHOICES = [(50, "50"), (100, "100"), (200, "200"), (500, "500")]
+    PROVIDER_CHOICES = [
+        ("Ncell", "Ncell"),
+        ("Ntc", "Ntc"),
+        ("Smart Cell", "Smart Cell"),
+        ("Others", "Others"),
+    ]
+    lucky_draw_system = models.ForeignKey(LuckyDrawSystem, on_delete=models.CASCADE, related_name='recharge_cards')
+    cardno = models.CharField(max_length=400, unique=True)
+    provider = models.CharField(max_length=20, choices=PROVIDER_CHOICES)
+    amount = models.IntegerField(choices=AMOUNT_CHOICES)
+    is_assigned = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"{self.provider} - {self.cardno}"
 
 class RechargeCardCondition(models.Model):
     offer_condition_name=models.CharField(max_length=100)
     condition=models.CharField(max_length=100)
 
     def __str__(self):
-        return f"{self.offer_type_name} (Condition: {self.condition})"
+        return f"{self.offer_condition_name} (Condition: {self.condition})"
 
 
 class RechargeCardOffer(BaseOffer):
@@ -136,7 +136,7 @@ class RechargeCardOffer(BaseOffer):
     valid_condition= models.ManyToManyField(RechargeCardCondition, blank=True)
 
     def __str__(self):
-        return f"Offer on {self.provider} of {self.amount} Recharge card [ {self.quantity} ]"
+        return f"Offer on {self.provider} of {self.amount} Recharge card"
 
     class Meta:
         ordering = ("start_date",)
@@ -146,13 +146,13 @@ class ElectronicOfferCondition(models.Model):
     condition=models.CharField(max_length=100)
 
     def __str__(self):
-        return f"{self.offer_type_name} (Condition: {self.condition})"
+        return f"{self.offer_condition_name} (Condition: {self.condition})"
 
 class ElectronicsShopOffer(BaseOffer):
     gift=models.ForeignKey(GiftItem, on_delete=models.CASCADE)
     valid_condition=models.ManyToManyField(ElectronicOfferCondition,blank=True)
     def __str__(self):
-        return f"Offer on Electronics Shop [ {self.quantity} ]"
+        return f"Offer on Electronics Shop [ {self.gift.name} ]"
 
     class Meta:
         ordering = ("start_date",)
@@ -182,7 +182,7 @@ class Customer(models.Model):
     how_know_about_campaign = models.CharField(max_length=50, choices=CAMPAIGN_CHOICES)
     recharge_card = models.ForeignKey(RechargeCard, on_delete=models.SET_NULL, null=True, related_name="customers")
     ntc_recharge_card = models.BooleanField(default=False)
-    amount_of_card = models.PositiveIntegerField(default=50, validators=[MinValueValidator(50), MaxValueValidator(500)])
+    amount_of_card = models.PositiveIntegerField(null=True,blank=True,validators=[MinValueValidator(50), MaxValueValidator(500)])
     profession = models.CharField(max_length=400, default="None")
 
     def __str__(self):

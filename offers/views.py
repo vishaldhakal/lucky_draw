@@ -434,7 +434,7 @@ class MobileOfferConditionListCreateView(generics.ListCreateAPIView):
         condition = request.data.get("condition")
 
         mobile_type = MobileOfferCondition.objects.create(
-            offer_type_name=offer_condition_name, condition=condition
+            offer_condition_name=offer_condition_name, condition=condition
         )
         mobile_type.save()
         serializer = MobileOfferConditionSerializer(mobile_type)
@@ -458,10 +458,10 @@ class MobileOfferConditionRetrieveUpdateDestroyView(
 
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
-        offer_type_name = request.data.get("offer_type_name", instance.offer_type_name)
+        offer_condition_name = request.data.get("offer_condition_name", instance.offer_condition_name)
         condition = request.data.get("condition", instance.condition)
 
-        instance.offer_type_name = offer_type_name
+        instance.offer_condition_name = offer_condition_name
         instance.condition = condition
         instance.save()
 
@@ -817,12 +817,13 @@ class CustomerListCreateView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         return Customer.objects.filter(
-            lucky_draw_system__organization=self.request.user.organization
+            lucky_draw_system__organization=1
         )
 
     def create(self, request, *args, **kwargs):
         lucky_draw_system = request.data.get("lucky_draw_system")
         customer_name = request.data.get("customer_name")
+        email=request.data.get("email")
         shop_name = request.data.get("shop_name")
         sold_area = request.data.get("sold_area")
         phone_number = request.data.get("phone_number")
@@ -838,7 +839,6 @@ class CustomerListCreateView(generics.ListCreateAPIView):
             return Response(
                 {"error": "IMEI is required."}, status=status.HTTP_400_BAD_REQUEST
             )
-        print(imei)
         try:
             imei_obj = IMEINO.objects.get(imei_no=imei, used=False)
         except IMEINO.DoesNotExist:
@@ -871,6 +871,7 @@ class CustomerListCreateView(generics.ListCreateAPIView):
             sold_area=sold_area,
             phone_number=phone_number,
             phone_model=phone_model,
+            email=email,
             imei=imei,
             how_know_about_campaign=how_know_about_campaign,
             profession=profession,
@@ -933,14 +934,14 @@ class CustomerListCreateView(generics.ListCreateAPIView):
 
         for offer in mobile_offers:
             condition_met = self.check_offer_condition(offer, sales_count)
-            validto_check = self.check_validto_condition(offer, phone_model)
+            validto_check = self.check_validto_condition(offer, customer.phone_model)
 
             if condition_met and validto_check:
                 customer.gift = offer.gift
                 customer.prize_details = (
                     f"Congratulations! You've won {offer.gift.name}"
                 )
-                
+  
                 customer.save()
                 offer.save()
                 return
@@ -968,6 +969,10 @@ class CustomerListCreateView(generics.ListCreateAPIView):
                 if recharge_card:
                     customer.recharge_card = recharge_card
                     customer.amount_of_card = offer.amount
+                    if offer.provider == "Ntc":
+                        customer.ntc_recharge_card = True
+                    else:
+                        customer.ntc_recharge_card = False
                     customer.prize_details = f"Congratulations! You've won {offer.provider} recharge card worth {offer.amount}"
                     customer.save()
                     recharge_card.is_assigned = True
@@ -1004,28 +1009,43 @@ class CustomerListCreateView(generics.ListCreateAPIView):
         today_date = timezone.now().date()
                 
         if offer.type_of_offer == "After every certain sale":
-            todayscount = Customer.objects.filter(
-                date_of_purchase=today_date, gift=offer.gift
-            ).count()
+            if isinstance(offer, RechargeCardOffer):
+                todayscount = Customer.objects.filter(
+                date_of_purchase=today_date,
+                recharge_card__is_assigned=False,
+                recharge_card__lucky_draw_system=offer.lucky_draw_system
+                ).count()
+            elif isinstance(offer, MobilePhoneOffer) or isinstance(offer, ElectronicsShopOffer):
+                todayscount = Customer.objects.filter(
+                    date_of_purchase=today_date,
+                    gift=offer.gift,
+                    lucky_draw_system=offer.lucky_draw_system
+                ).count()
             return (
-                sales_count % int(offer.offer_condition_value) == 0
-                and todayscount < offer.daily_quantity
-            )
-        elif offer.type_of_offer == "At certain sale position":
-            return str(sales_count) in offer.sale_numbers
+                    sales_count % int(offer.offer_condition_value) == 0
+                    and todayscount < offer.daily_quantity
+                )
+        elif offer.type_of_offer == "At certain sale position":      
+            return (sales_count in offer.sale_numbers)
         return (
             False  # If the offer type doesn't match any condition, it's not applicable
         )
-
     def check_validto_condition(self, offer, phone_model):
-        if not offer.valid_condition.exists():
-            return True  # If there are no valid conditions, the offer is applicable to all devices
-        
-        for condition in offer.valid_condition.all():
-            if phone_model.startswith(condition.condition):
-                return True
 
-        return False  # If there are valid conditions but no match, the offer is not valid for this phone model
+        valid_conditions = offer.valid_condition.all()
+
+        if not valid_conditions.exists():
+            return True
+
+        phone_model_lower = phone_model.lower()
+        
+        for condition in valid_conditions:
+            condition_value = condition.condition.lower()
+            
+            if phone_model_lower.startswith(condition_value):
+                return True
+        
+        return False
         
         # if hasattr(offer, "valid_condition"):
         #     conditions = offer.valid_condition.all()
