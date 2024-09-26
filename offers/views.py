@@ -1004,7 +1004,12 @@ class CustomerListCreateView(generics.ListCreateAPIView):
 
     def check_offer_condition(self, offer, sales_count):
         today_date = timezone.now().date()
+        today_time = timezone.now().time()
                 
+        if offer.has_time_limit:
+            if today_time < offer.start_time or today_time > offer.end_time:
+                return False
+            
         if offer.type_of_offer == "After every certain sale":
             todayscount = Customer.objects.filter(
                 date_of_purchase=today_date, gift=offer.gift
