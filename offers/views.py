@@ -827,6 +827,8 @@ class CustomerListCreateView(generics.ListCreateAPIView):
         sold_area = request.data.get("sold_area")
         phone_number = request.data.get("phone_number")
         email = request.data.get("email")
+        region = request.data.get("region")
+
         if Customer.objects.filter(phone_number=phone_number).exists():
             return Response(
                 {"error": "A customer with this phone number already exists."},
@@ -872,6 +874,7 @@ class CustomerListCreateView(generics.ListCreateAPIView):
             sold_area=sold_area,
             phone_number=phone_number,
             email=email,
+            region=region,
             phone_model=phone_model,
             imei=imei,
             how_know_about_campaign=how_know_about_campaign,
@@ -934,7 +937,7 @@ class CustomerListCreateView(generics.ListCreateAPIView):
         ).order_by("priority")
 
         for offer in mobile_offers:
-            condition_met = self.check_offer_condition(offer, sales_count)
+            condition_met = self.check_offer_condition(offer, sales_count,customer.region)
             validto_check = self.check_validto_condition(offer, phone_model)
 
             if condition_met and validto_check:
@@ -1002,10 +1005,22 @@ class CustomerListCreateView(generics.ListCreateAPIView):
         customer.prize_details = "Thank you for your purchase!"
         customer.save()
 
-    def check_offer_condition(self, offer, sales_count):
+    def check_offer_condition(self, offer, sales_count,region):
         today_date = timezone.now().date()
         today_time = timezone.now().time()
-                
+
+        if offer.has_region_limit:
+            region_counts = {
+                "Centeral Region": Customer.objects.filter(region="Centeral Region").count(),
+                "Eastern Region": Customer.objects.filter(region="Eastern Region").count(),
+                "Western Region": Customer.objects.filter(region="Western Region").count()
+            }
+
+            min_count = min(region_counts.values())
+
+            if region_counts[region] > min_count:
+                return False
+            
         if offer.has_time_limit:
             if today_time < offer.start_time or today_time > offer.end_time:
                 return False

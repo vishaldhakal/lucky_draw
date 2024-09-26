@@ -100,6 +100,7 @@ class BaseOffer(models.Model):
     type_of_offer = models.CharField(max_length=30, choices=OFFER_CHOICES)
     offer_condition_value = models.CharField(max_length=500, blank=True)
     sale_numbers = models.JSONField(null=True, blank=True)
+    has_region_limit = models.BooleanField(default=False)
 
     class Meta:
         abstract = True
@@ -182,6 +183,7 @@ class Customer(models.Model):
     gift = models.ForeignKey(GiftItem, on_delete=models.SET_NULL, null=True)
     imei = models.CharField(max_length=400, blank=True)
     date_of_purchase = models.DateField(auto_now_add=True)
+    region = models.CharField(max_length=400,default="None")
     how_know_about_campaign = models.CharField(max_length=50, choices=CAMPAIGN_CHOICES)
     recharge_card = models.ForeignKey(RechargeCard, on_delete=models.SET_NULL, null=True, related_name="customers")
     ntc_recharge_card = models.BooleanField(default=False)

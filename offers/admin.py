@@ -17,7 +17,7 @@ admin.site.register(RechargeCardOffer, ModelAdmin)
 admin.site.register(FixOffer, ModelAdmin)
 class MobilePhoneOfferAdmin(ModelAdmin):
     fieldsets=(
-        (None,{'fields':('lucky_draw_system',('start_date','end_date'),'gift','daily_quantity','type_of_offer','offer_condition_value','sale_numbers','valid_condition','priority','start_time','end_time','has_time_limit')}),
+        (None,{'fields':('lucky_draw_system',('start_date','end_date'),'gift','daily_quantity','type_of_offer','offer_condition_value','sale_numbers','valid_condition','priority','start_time','end_time','has_time_limit','has_region_limit')}),
     )
 admin.site.register(MobilePhoneOffer, MobilePhoneOfferAdmin)
 admin.site.register(IMEINO, ModelAdmin)
