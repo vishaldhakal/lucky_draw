@@ -874,12 +874,13 @@ class CustomerListCreateView(generics.ListCreateAPIView):
             sold_area=sold_area,
             phone_number=phone_number,
             email=email,
-            region=region,
             phone_model=phone_model,
             imei=imei,
             how_know_about_campaign=how_know_about_campaign,
             profession=profession,
         )
+        if region:
+            customer.region = region
 
         self.assign_gift(customer)
 
@@ -937,7 +938,10 @@ class CustomerListCreateView(generics.ListCreateAPIView):
         ).order_by("priority")
 
         for offer in mobile_offers:
-            condition_met = self.check_offer_condition(offer, sales_count,customer.region)
+            if customer.region != "None":
+                condition_met = self.check_offer_condition(offer, sales_count,customer.region)
+            else:
+                condition_met = self.check_offer_condition(offer, sales_count,"Other")
             validto_check = self.check_validto_condition(offer, phone_model)
 
             if condition_met and validto_check:
@@ -1013,7 +1017,8 @@ class CustomerListCreateView(generics.ListCreateAPIView):
             region_counts = {
                 "Centeral Region": Customer.objects.filter(region="Centeral Region").count(),
                 "Eastern Region": Customer.objects.filter(region="Eastern Region").count(),
-                "Western Region": Customer.objects.filter(region="Western Region").count()
+                "Western Region": Customer.objects.filter(region="Western Region").count(),
+                "Other": Customer.objects.filter(region="Other").count()
             }
 
             min_count = min(region_counts.values())
