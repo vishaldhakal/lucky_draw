@@ -1014,6 +1014,9 @@ class CustomerListCreateView(generics.ListCreateAPIView):
         today_time = timezone.now().time()
 
         if offer.has_region_limit:
+            if region == "None" or region == "Other":
+                return False
+            
             region_counts = {
                 "Centeral Region": Customer.objects.filter(region="Centeral Region").count(),
                 "Eastern Region": Customer.objects.filter(region="Eastern Region").count(),
