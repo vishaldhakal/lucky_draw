@@ -19,9 +19,17 @@ class MobilePhoneOfferAdmin(ModelAdmin):
     fieldsets=(
         (None,{'fields':('lucky_draw_system',('start_date','end_date'),'gift','daily_quantity','type_of_offer','offer_condition_value','sale_numbers','valid_condition','priority','start_time','end_time','has_time_limit','has_region_limit')}),
     )
+class CustomerAdmin(ModelAdmin):
+    list_filter = ('lucky_draw_system','sale_status', 'region', 'how_know_about_campaign')
+
 admin.site.register(MobilePhoneOffer, MobilePhoneOfferAdmin)
-admin.site.register(IMEINO, ModelAdmin)
-admin.site.register(Customer, ModelAdmin)
+
+class IMEIAdmin(ModelAdmin):
+    search_fields = ('imei_no',)
+
+admin.site.register(IMEINO, IMEIAdmin)
+
+admin.site.register(Customer, CustomerAdmin)
 admin.site.register(MobileOfferCondition, ModelAdmin)
 admin.site.register(RechargeCardCondition, ModelAdmin)
 admin.site.register(ElectronicOfferCondition, ModelAdmin)
