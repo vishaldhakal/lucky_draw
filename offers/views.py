@@ -1174,3 +1174,15 @@ def download_customers_detail(request):
             )
 
         return response
+
+def export_data_to_csv(request,id):
+    response = HttpResponse(content_type="text/csv")
+    response["Content-Disposition"] = 'attachment; filename="today.csv"'
+    writer = csv.writer(response)
+    luckydraw = LuckyDrawSystem.objects.get(id=id)
+    cust = Customer.objects.filter(lucky_draw_system=luckydraw)
+
+    writer.writerow(["Customer Name", "Shop Name", "Sold Area", "Phone Number", "Email", "Phone Model", "IMEI", "How Know About Campaign", "Profession", "Region", "Gift", "Date of Purchase", "Prize Details", "Recharge Card", "NTC Recharge Card", "Amount of Ntc Card"])
+    for customer in cust:
+        writer.writerow([customer.customer_name, customer.shop_name, customer.sold_area, customer.phone_number, customer.email, customer.phone_model, customer.imei, customer.how_know_about_campaign, customer.profession, customer.region, customer.gift, customer.date_of_purchase, customer.prize_details, customer.recharge_card, customer.ntc_recharge_card, customer.amount_of_card])
+    return response
