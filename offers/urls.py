@@ -110,5 +110,5 @@ urlpatterns = [
     path("get-gift-list/", views.GetGiftList, name="get-gift-list"),
     # Upload IMEINo
     path("upload-imeino/", views.UploadImeiBulk, name="upload-imeino"),
-    path("export-data/<int:pk>/", views.export_data, name="export-data"),
+    path("export-data/<int:pk>/", views.export_data, name="export-exportdata"),
 ]

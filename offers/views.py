@@ -1175,7 +1175,7 @@ def download_customers_detail(request):
 
         return response
 
-def export_data_to_csv(request,id):
+def export_data(request,id):
     response = HttpResponse(content_type="text/csv")
     response["Content-Disposition"] = 'attachment; filename="today.csv"'
     writer = csv.writer(response)
