@@ -1115,15 +1115,21 @@ def UploadImeiBulk(request):
 @api_view(["POST"])
 def download_customers_detail(request):
     if request.method == "POST":
-        start_date = request.GET.get("start_date", None)
-        end_date = request.GET.get("end_date", None)
+        data = request.data
+        start_date = data.get("start_date", None)
+        end_date = data.get("end_date", None)
 
         # Create a base queryset for customers with gifts
         queryset = Customer.objects.all()
 
         if start_date and end_date:
-            # Filter data within the specified date range
             queryset = queryset.filter(date_of_purchase__range=(start_date, end_date))
+        
+        if start_date and not end_date:
+            queryset = queryset.filter(date_of_purchase=start_date)
+        
+        if end_date and not start_date:
+            queryset = queryset.filter(date_of_purchase=end_date)
 
         # Create a CSV response
         response = HttpResponse(content_type="text/csv")
@@ -1136,6 +1142,7 @@ def download_customers_detail(request):
                 "Customer Name",
                 "Shop Name",
                 "Sold Area",
+                'Region',
                 "Phone Number",
                 "Phone Model",
                 "Sale Status",
@@ -1144,9 +1151,6 @@ def download_customers_detail(request):
                 "Gift",
                 "Date of Purchase",
                 "How Know About Campaign",
-                "Recharge Card",
-                "NTC Recharge Card",
-                "Amount of Ntc Card",
                 "Profession",
             ]
         )
@@ -1158,6 +1162,7 @@ def download_customers_detail(request):
                     customer.customer_name,
                     customer.shop_name,
                     customer.sold_area,
+                    customer.region,
                     customer.phone_number,
                     customer.phone_model,
                     customer.sale_status,
@@ -1166,9 +1171,6 @@ def download_customers_detail(request):
                     customer.gift,
                     customer.date_of_purchase,
                     customer.how_know_about_campaign,
-                    customer.recharge_card,
-                    customer.ntc_recharge_card,
-                    customer.amount_of_card,
                     customer.profession,
                 ]
             )
