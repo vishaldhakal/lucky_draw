@@ -36,6 +36,7 @@ from .models import (
 )
 import csv
 import io
+import datetime
 
 
 # Create your views here.
@@ -1116,11 +1117,16 @@ def UploadImeiBulk(request):
 def download_customers_detail(request):
     if request.method == "POST":
         data = request.data
-        start_date = data.get("start_date", None)
-        end_date = data.get("end_date", None)
+        start_date = data.get("start_date", datetime.date.today())
+        end_date = data.get("end_date", datetime.date.today())
+        luckydraw = data.get("lucky_draw_system_id", None)
 
         # Create a base queryset for customers with gifts
         queryset = Customer.objects.all()
+
+        if luckydraw is not None:
+            system = LuckyDrawSystem.objects.get(id =luckydraw)
+            queryset = queryset.filter(lucky_draw_system=system)
 
         if start_date and end_date:
             queryset = queryset.filter(date_of_purchase__range=(start_date, end_date))
