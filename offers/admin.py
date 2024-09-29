@@ -21,8 +21,8 @@ class MobilePhoneOfferAdmin(ModelAdmin):
     )
 class CustomerAdmin(ModelAdmin):
     list_filter = ('lucky_draw_system','sale_status', 'region', 'how_know_about_campaign','date_of_purchase')
-    list_display = ('customer_name','imei','prize_details','region','gift')
-    search_fields = ('customer_name','imei','prize_details','region','gift')
+    list_display = ('customer_name','imei','prize_details','region','gift__name')
+    search_fields = ('customer_name','imei','prize_details','region','gift__name')
 
 admin.site.register(MobilePhoneOffer, MobilePhoneOfferAdmin)
 
