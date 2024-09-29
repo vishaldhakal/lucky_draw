@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from django.contrib.auth.forms import UserChangeForm, UserCreationForm
 from unfold.admin import ModelAdmin
+from unfold.forms import UserCreationForm, UserChangeForm
 from .models import CustomUser, Organization
 
 class CustomUserCreationForm(UserCreationForm):
