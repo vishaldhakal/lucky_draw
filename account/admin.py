@@ -33,7 +33,6 @@ class CustomUserAdmin(ModelAdmin, UserAdmin):
     )
     search_fields = ('email',)
     ordering = ('email',)
-    autocomplete_fields = ['groups','user_permissions']
 
     def save_model(self, request, obj, form, change):
         if not change:

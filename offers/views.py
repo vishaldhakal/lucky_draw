@@ -887,7 +887,7 @@ class CustomerListCreateView(generics.ListCreateAPIView):
 
         serializer = CustomerGiftSerializer(customer)
         data = serializer.data
-        if (customer.gift != None) and (customer.gift.image != ""):
+        if (customer.gift is not None) and (customer.gift.image != ""):
             data["gift"]["image"] = request.build_absolute_uri(data["gift"]["image"])
         return Response(data, status=status.HTTP_201_CREATED)
 
@@ -1022,7 +1022,6 @@ class CustomerListCreateView(generics.ListCreateAPIView):
                 "Centeral Region": Customer.objects.filter(region="Centeral Region").count(),
                 "Eastern Region": Customer.objects.filter(region="Eastern Region").count(),
                 "Western Region": Customer.objects.filter(region="Western Region").count(),
-                "Other": Customer.objects.filter(region="Other").count()
             }
 
             min_count = min(region_counts.values())
