@@ -954,38 +954,7 @@ class CustomerListCreateView(generics.ListCreateAPIView):
                 customer.save()
                 offer.save()
                 return
-
-        # Check Recharge Card Offers
-        recharge_offers = RechargeCardOffer.objects.filter(
-            lucky_draw_system=lucky_draw_system,
-            start_date__lte=today_date,
-            end_date__gte=today_date,
-            daily_quantity__gt=0,
-        )
-
-        for offer in recharge_offers:
-            condition_met = self.check_offer_condition(offer, sales_count)
-            validto_check = self.check_validto_condition(offer, phone_model)
-
-            if condition_met and validto_check:
-                recharge_card = RechargeCard.objects.filter(
-                    lucky_draw_system=lucky_draw_system,
-                    provider=offer.provider,
-                    amount=offer.amount,
-                    is_assigned=False,
-                ).first()
-
-                if recharge_card:
-                    customer.recharge_card = recharge_card
-                    customer.amount_of_card = offer.amount
-                    customer.prize_details = f"Congratulations! You've won {offer.provider} recharge card worth {offer.amount}"
-                    customer.save()
-                    recharge_card.is_assigned = True
-                    
-                    recharge_card.save()
-                    offer.save()
-                    return
-
+            
         # Check Electronic Shop Offers
         electronic_offers = ElectronicsShopOffer.objects.filter(
             lucky_draw_system=lucky_draw_system,
@@ -1019,9 +988,9 @@ class CustomerListCreateView(generics.ListCreateAPIView):
                 return False
             
             region_counts = {
-                "Centeral Region": Customer.objects.filter(region="Centeral Region").count(),
-                "Eastern Region": Customer.objects.filter(region="Eastern Region").count(),
-                "Western Region": Customer.objects.filter(region="Western Region").count(),
+                "Centeral Region": Customer.objects.filter(region="Centeral Region",gift=offer.gift).count(),
+                "Eastern Region": Customer.objects.filter(region="Eastern Region",gift=offer.gift).count(),
+                "Western Region": Customer.objects.filter(region="Western Region",gift=offer.gift).count(),
             }
 
             min_count = min(region_counts.values())
