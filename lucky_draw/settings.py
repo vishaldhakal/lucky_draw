@@ -36,7 +36,7 @@ INSTALLED_APPS = [
     'tinymce',
     'account',
     'offers',
-    
+    'luckyno',
 ]
 
 AUTH_USER_MODEL = 'account.CustomUser'
