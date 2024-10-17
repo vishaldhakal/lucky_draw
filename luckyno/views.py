@@ -5,6 +5,7 @@ from .models import Reward, PromoParticipant, LuckyCustomer
 from .serializers import RewardSerializer, PromoParticipantSerializer, LuckyCustomerSerializer
 from django.db.models import F
 from django.utils import timezone
+from django.db import transaction
 import csv
 import io
 
@@ -36,34 +37,34 @@ class SelectWinner(APIView):
     def post(self, request):
         today = timezone.now().date()
         
-        # Get all rewards for today with qty > 0, ordered by priority
-        available_rewards = Reward.objects.filter(date=today, qty__gt=0).order_by('-priority', 'id')
-        
-        if not available_rewards:
-            return Response({"message": "No rewards available for today."}, status=status.HTTP_404_NOT_FOUND)
+        with transaction.atomic():
+            # Get all rewards for today with qty > 0, ordered by priority
+            available_rewards = Reward.objects.select_for_update().filter(date=today, qty__gt=0).order_by('-priority', 'id')
+            
+            if not available_rewards:
+                return Response({"message": "No rewards available for today."}, status=status.HTTP_404_NOT_FOUND)
 
-        # Get a random participant who hasn't been rewarded yet
-        participant = PromoParticipant.objects.filter(rewarded=False).order_by('?').first()
-        
-        if not participant:
-            return Response({"message": "No eligible participants found."}, status=status.HTTP_404_NOT_FOUND)
+            # Get a random participant who hasn't been rewarded yet
+            participant = PromoParticipant.objects.select_for_update().filter(rewarded=False).order_by('?').first()
+            
+            if not participant:
+                return Response({"message": "No eligible participants found."}, status=status.HTTP_404_NOT_FOUND)
 
-        # Select the first available reward
-        reward = available_rewards.first()
+            # Select the first available reward
+            reward = available_rewards.first()
 
-        # Create a LuckyCustomer instance
-        lucky_customer = LuckyCustomer.objects.create(participant=participant, reward=reward)
+            # Create a LuckyCustomer instance
+            lucky_customer = LuckyCustomer.objects.create(participant=participant, reward=reward)
 
-        # Update the reward quantity and participant status
-        reward.qty = F('qty') - 1
-        reward.save()
+            # Update the reward quantity and participant status
+            reward.qty = reward.qty - 1
+            reward.save()
 
-        participant.rewarded = True
-        participant.save()
+            participant.rewarded = True
+            participant.save()
 
         serializer = LuckyCustomerSerializer(lucky_customer)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
-
 
 class UploadPromoParticipants(APIView):
     def post(self, request):
