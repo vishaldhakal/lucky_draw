@@ -880,6 +880,7 @@ class CustomerListCreateView(generics.ListCreateAPIView):
             how_know_about_campaign=how_know_about_campaign,
             profession=profession,
         )
+        
         if region:
             customer.region = region
 

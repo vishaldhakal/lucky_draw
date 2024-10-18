@@ -113,7 +113,7 @@ class MobileOfferCondition(models.Model):
     condition=models.CharField(max_length=100)
 
     def __str__(self):
-        return f"{self.offer_type_name} (Condition: {self.condition})"
+        return f"{self.offer_condition_name} (Condition: {self.condition})"
 
 class MobilePhoneOffer(BaseOffer):
     gift = models.ForeignKey(GiftItem, on_delete=models.CASCADE)
