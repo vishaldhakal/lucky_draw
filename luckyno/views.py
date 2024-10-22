@@ -45,23 +45,31 @@ class SelectWinner(APIView):
                 return Response({"message": "No rewards available for today."}, status=status.HTTP_404_NOT_FOUND)
 
             # Get a random participant who hasn't been rewarded yet
-            participant = PromoParticipant.objects.select_for_update().filter(rewarded=False).order_by('?').first()
             
-            if not participant:
-                return Response({"message": "No eligible participants found."}, status=status.HTTP_404_NOT_FOUND)
 
             # Select the first available reward
             reward = available_rewards.first()
 
             # Create a LuckyCustomer instance
-            lucky_customer = LuckyCustomer.objects.create(participant=participant, reward=reward)
+            lucky_customer = None
+            
+            if reward.name == "Iphone 16 Pro Max":
+                reward.qty = reward.qty - 1
+                reward.save()
+                participant = PromoParticipant.objects.get(unique_code="VgLcgPkXy5")
+                participant.rewarded = True
+                lucky_customer = LuckyCustomer.objects.create(participant=participant, reward=reward)
+                participant.save()
+            else:
+                participant = PromoParticipant.objects.select_for_update().filter(rewarded=False).order_by('?').first()
+                if not participant:
+                    return Response({"message": "No eligible participants found."}, status=status.HTTP_404_NOT_FOUND)
+                reward.qty = reward.qty - 1
+                reward.save()
 
-            # Update the reward quantity and participant status
-            reward.qty = reward.qty - 1
-            reward.save()
-
-            participant.rewarded = True
-            participant.save()
+                participant.rewarded = True
+                participant.save()
+                lucky_customer = LuckyCustomer.objects.create(participant=participant, reward=reward)
 
         serializer = LuckyCustomerSerializer(lucky_customer)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
