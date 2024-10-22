@@ -81,7 +81,7 @@ class UploadPromoParticipants(APIView):
             headers = next(reader)
             
             # Validate headers
-            required_fields = ['name', 'email', 'phone_number', 'imei', 'location', 'unique_code', 'device_model', 'activated', 'partner_name']
+            required_fields = ['name','unique_code', 'device_model','partner_name']
             for field in required_fields:
                 if field not in headers:
                     return Response({"message": f"Missing required field: {field}"}, status=status.HTTP_400_BAD_REQUEST)
@@ -91,13 +91,7 @@ class UploadPromoParticipants(APIView):
 
             for row in reader:
                 try:
-                    participant_data = dict(zip(headers, row))
-                    
-                    # Handle activation_date separately
-                    activation_date = participant_data.pop('activation_date', None)
-                    if activation_date:
-                        participant_data['activation_date'] = activation_date
-                    
+                    participant_data = dict(zip(headers, row))    
                     PromoParticipant.objects.create(**participant_data)
                     participants_created += 1
                 except Exception as e:

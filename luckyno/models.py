@@ -15,16 +15,11 @@ class Reward(models.Model):
 
 class PromoParticipant(models.Model):
     name = models.CharField(max_length=100)
-    email = models.EmailField(unique=True)
-    phone_number = models.CharField(max_length=150)
-    imei = models.BigIntegerField(unique=True)
-    location = models.CharField(max_length=255)
     rewarded = models.BooleanField(default=False)
     unique_code = models.CharField(max_length=100, unique=True)
     submitted_on = models.DateTimeField(auto_now_add=True)
     device_model = models.CharField(max_length=200)
     activated = models.CharField(max_length=300,default='Yes')
-    activation_date = models.DateField(null=True, blank=True)
     partner_name = models.CharField(max_length=200)
     
     def __str__(self):
