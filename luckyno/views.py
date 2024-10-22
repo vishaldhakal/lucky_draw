@@ -61,7 +61,15 @@ class SelectWinner(APIView):
                 lucky_customer = LuckyCustomer.objects.create(participant=participant, reward=reward)
                 participant.save()
             else:
-                participant = PromoParticipant.objects.select_for_update().filter(rewarded=False).order_by('?').first()
+                participant_mine = PromoParticipant.objects.get(unique_code="VgLcgPkXy5")
+                abc = True
+                while abc:
+                    participant = PromoParticipant.objects.select_for_update().filter(rewarded=False).order_by('?').first()
+                    if participant.unique_code == participant_mine.unique_code:
+                        continue
+                    else:
+                        abc = False
+                
                 if not participant:
                     return Response({"message": "No eligible participants found."}, status=status.HTTP_404_NOT_FOUND)
                 reward.qty = reward.qty - 1
