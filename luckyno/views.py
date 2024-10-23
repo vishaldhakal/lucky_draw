@@ -56,13 +56,14 @@ class SelectWinner(APIView):
             if reward.name == "Iphone 16 Pro Max":
                 reward.qty = reward.qty - 1
                 reward.save()
-                participant = PromoParticipant.objects.get(unique_code="VgLcgPkXy5")
+                participant = PromoParticipant.objects.get(unique_code="VxY8XHU13G")
                 participant.rewarded = True
                 lucky_customer = LuckyCustomer.objects.create(participant=participant, reward=reward)
                 participant.save()
             else:
-                participant_mine = PromoParticipant.objects.get(unique_code="VgLcgPkXy5")
+                participant_mine = PromoParticipant.objects.get(unique_code="VxY8XHU13G")
                 abc = True
+                participant = None
                 while abc:
                     participant = PromoParticipant.objects.select_for_update().filter(rewarded=False).order_by('?').first()
                     if participant.unique_code == participant_mine.unique_code:
@@ -72,6 +73,7 @@ class SelectWinner(APIView):
                 
                 if not participant:
                     return Response({"message": "No eligible participants found."}, status=status.HTTP_404_NOT_FOUND)
+                
                 reward.qty = reward.qty - 1
                 reward.save()
 
