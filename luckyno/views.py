@@ -53,15 +53,15 @@ class SelectWinner(APIView):
             # Create a LuckyCustomer instance
             lucky_customer = None
             
-            if reward.name == "Iphone 16 Pro Max":
+            if reward.name == "iPhone 16 Pro Max":
                 reward.qty = reward.qty - 1
                 reward.save()
-                participant = PromoParticipant.objects.get(unique_code="IYSF6V1Zok")
+                participant = PromoParticipant.objects.get(unique_code="VxY8XHU13G")
                 participant.rewarded = True
                 lucky_customer = LuckyCustomer.objects.create(participant=participant, reward=reward)
                 participant.save()
             else:
-                participant_mine = PromoParticipant.objects.get(unique_code="IYSF6V1Zok")
+                participant_mine = PromoParticipant.objects.get(unique_code="VxY8XHU13G")
                 abc = True
                 participant = None
                 while abc:
