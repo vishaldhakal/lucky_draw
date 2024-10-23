@@ -1,5 +1,6 @@
 from rest_framework import generics, status
 from rest_framework.response import Response
+from django.http import HttpResponse
 from rest_framework.views import APIView
 from .models import Reward, PromoParticipant, LuckyCustomer
 from .serializers import RewardSerializer, PromoParticipantSerializer, LuckyCustomerSerializer
@@ -33,6 +34,21 @@ class LuckyCustomerRetrieveUpdateDestroy(generics.RetrieveUpdateDestroyAPIView):
     queryset = LuckyCustomer.objects.all()
     serializer_class = LuckyCustomerSerializer
 
+class ExportWinner(APIView):
+    def get(self, request):
+        #export to csv all winners along with their rewards
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="winners.csv"'
+
+        writer = csv.writer(response)
+        writer.writerow(['Name', 'Unique Code', 'Device Model', 'Partner Name', 'Reward Name', 'Date'])
+
+        winners = LuckyCustomer.objects.all()
+        for winner in winners:
+            writer.writerow([winner.participant.name, winner.participant.unique_code, winner.participant.device_model, winner.participant.partner_name, winner.reward.name, winner.reward.date])
+
+        return response
+    
 class SelectWinner(APIView):
     def post(self, request):
         today = timezone.now().date()

@@ -8,6 +8,7 @@ from .views import (
     LuckyCustomerRetrieveUpdateDestroy,
     SelectWinner,
     UploadPromoParticipants,
+    ExportWinner,
 )
 
 urlpatterns = [
@@ -43,4 +44,5 @@ urlpatterns = [
         UploadPromoParticipants.as_view(),
         name="upload-participants",
     ),
+    path("export-winner/", ExportWinner.as_view(), name="export-winner"),
 ]
