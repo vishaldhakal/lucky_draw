@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from django.utils.translation import gettext_lazy as _
 from datetime import timedelta
@@ -85,7 +86,7 @@ WSGI_APPLICATION = 'lucky_draw.wsgi.application'
 } """
 
 
-DATABASES = {
+""" DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql_psycopg2",
         "NAME": "lucky_draw",
@@ -94,8 +95,18 @@ DATABASES = {
         "HOST": "localhost",
         "PORT": "",
     }
-}
+} """
 
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.postgresql_psycopg2",
+        "NAME": "lucky_draw",
+        "USER": "ratish",
+        "PASSWORD": "ratish123",
+        "HOST": "localhost",
+        "PORT": "",
+    }
+}
 
 DATA_UPLOAD_MAX_MEMORY_SIZE = None
 
@@ -134,10 +145,7 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
 
 STATIC_URL = '/static/'
-STATIC_ROOT = Path(BASE_DIR, 'static/')
-STATICFILES_DIRS = [
-
-]
+STATIC_ROOT = os.path.join(BASE_DIR, 'static/')
 
 
 MEDIA_URL = 'media/'
@@ -152,7 +160,7 @@ CORS_ORIGIN_ALLOW_ALL = True
 REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.LimitOffsetPagination',
     'DEFAULT_AUTHENTICATION_CLASSES': [
-       'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
     ],
     'PAGE_SIZE': 100
 }
@@ -177,8 +185,8 @@ UNFOLD = {
 
 
 TINYMCE_DEFAULT_CONFIG = {
-    "height" : "780",
-    "width" : "780",
+    "height": "780",
+    "width": "780",
     "entity_encoding": "raw",
     "menubar": "file edit view insert format tools table help",
     "plugins": 'print preview paste importcss searchreplace autolink autosave save code visualblocks visualchars fullscreen image link media template codesample table charmap hr pagebreak nonbreaking anchor toc insertdatetime advlist lists wordcount imagetools textpattern noneditable help charmap emoticons quickbars',
