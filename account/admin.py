@@ -41,4 +41,4 @@ class CustomUserAdmin(ModelAdmin, UserAdmin):
         super().save_model(request, obj, form, change)
 
 admin.site.register(CustomUser, CustomUserAdmin)
-admin.site.register(Organization)
+admin.site.register(Organization,ModelAdmin)
