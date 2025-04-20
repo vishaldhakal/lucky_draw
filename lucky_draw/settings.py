@@ -228,3 +228,5 @@ SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(days=50),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
 }
+
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 30240 # higher than the count of fields
