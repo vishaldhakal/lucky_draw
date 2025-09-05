@@ -42,9 +42,16 @@ class LuckyDrawSystem(models.Model):
         return self.name
 
 class GiftItem(models.Model):
+    GIFT_CATEGORY_CHOICES = [
+        ('minor', 'Minor Gift'),
+        ('major', 'Major Gift'),
+        ('grand', 'Grand Gift'),
+    ]
+
     lucky_draw_system = models.ForeignKey(LuckyDrawSystem, on_delete=models.CASCADE, related_name='gift_items')
     name = models.CharField(max_length=255)
     image = models.FileField(upload_to='gift_items/', blank=True, null=True)
+    category = models.CharField(max_length=10, choices=GIFT_CATEGORY_CHOICES, default='minor',null=True,blank=True)
 
     def __str__(self):
         return self.name
@@ -77,7 +84,8 @@ class IMEINO(models.Model):
 
 class FixOffer(models.Model):
     lucky_draw_system = models.ForeignKey(LuckyDrawSystem, on_delete=models.CASCADE, related_name='fix_offers')
-    imei_no = models.CharField(max_length=400)
+    phone_number=models.CharField(max_length=20, blank=True, null=True)
+    imei_no = models.CharField(max_length=400, blank=True, null=True)
     quantity = models.PositiveIntegerField()
     gift = models.ForeignKey(GiftItem, on_delete=models.CASCADE)
 
@@ -156,7 +164,7 @@ class ElectronicsShopOffer(BaseOffer):
     gift=models.ForeignKey(GiftItem, on_delete=models.CASCADE)
     valid_condition=models.ManyToManyField(ElectronicOfferCondition,blank=True)
     def __str__(self):
-        return f"Offer on Electronics Shop [ {self.quantity} ]"
+        return f"Offer on {self.gift.name} Electronics Shop [ {self.daily_quantity} ]"
 
     class Meta:
         ordering = ("start_date",)
@@ -177,7 +185,7 @@ class Customer(models.Model):
     shop_name = models.TextField()
     sold_area = models.CharField(max_length=800)
     phone_number = models.CharField(max_length=20)
-    phone_model = models.CharField(max_length=400)
+    phone_model = models.CharField(max_length=400, blank=True, null=True)
     sale_status = models.CharField(max_length=20, default="SOLD")
     prize_details = models.CharField(max_length=900, default="Thank You")
     gift = models.ForeignKey(GiftItem, on_delete=models.SET_NULL, null=True)
@@ -185,7 +193,7 @@ class Customer(models.Model):
     date_of_purchase = models.DateField(auto_now_add=True)
     region = models.CharField(max_length=400,default="None")
     how_know_about_campaign = models.CharField(max_length=50, choices=CAMPAIGN_CHOICES)
-    recharge_card = models.ForeignKey(RechargeCard, on_delete=models.SET_NULL, null=True, related_name="customers")
+    recharge_card = models.ForeignKey(RechargeCard, on_delete=models.SET_NULL, null=True,blank=True, related_name="customers")
     ntc_recharge_card = models.BooleanField(default=False)
     amount_of_card = models.PositiveIntegerField(default=50, validators=[MinValueValidator(50), MaxValueValidator(500)])
     profession = models.CharField(max_length=400, default="None")

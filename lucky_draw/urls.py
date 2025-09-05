@@ -8,6 +8,7 @@ urlpatterns = [
     path("api/auth/", include("account.urls")),
     path("api/offers/", include("offers.urls")),
     path("api/luckyno/", include("luckyno.urls")),
+    path("api/", include("slot_machine.urls")),
 ]
 
 if settings.DEBUG:

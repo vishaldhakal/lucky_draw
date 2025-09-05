@@ -36,4 +36,9 @@ admin.site.register(MobileOfferCondition, ModelAdmin)
 admin.site.register(RechargeCardCondition, ModelAdmin)
 admin.site.register(ElectronicOfferCondition, ModelAdmin)
 
+class ElectronicsShopOfferAdmin(ModelAdmin):
+    list_display = ('gift','lucky_draw_system','daily_quantity','start_date','end_date','type_of_offer','offer_condition_value')
+
+admin.site.register(ElectronicsShopOffer, ElectronicsShopOfferAdmin)
+
 

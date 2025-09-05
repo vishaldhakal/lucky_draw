@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     'account',
     'offers',
     'luckyno',
+    'slot_machine'
 ]
 
 AUTH_USER_MODEL = 'account.CustomUser'
@@ -229,4 +230,4 @@ SIMPLE_JWT = {
     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
 }
 
-DATA_UPLOAD_MAX_NUMBER_FIELDS = 30240 # higher than the count of fields
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 30240  # higher than the count of fields
