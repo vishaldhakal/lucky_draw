@@ -22,8 +22,9 @@ class SlotMachineListCreateView(generics.ListCreateAPIView):
         lucky_draw_system = request.data.get("lucky_draw_system")
         customer_name = request.data.get("customer_name")
         phone_number = request.data.get("phone_number")
-        email = request.data.get("email")
         region = request.data.get("region", "None")
+        product_purchased = request.data.get("product_purchased")
+        bill_number = request.data.get("bill_number")
 
         try:
             lucky_draw = LuckyDrawSystem.objects.get(id=lucky_draw_system)
@@ -37,8 +38,9 @@ class SlotMachineListCreateView(generics.ListCreateAPIView):
             lucky_draw_system=lucky_draw,
             customer_name=customer_name,
             phone_number=phone_number,
-            email=email,
             region=region,
+            product_purchased=product_purchased,
+            bill_number=bill_number,
         )
 
         self.assign_gift(customer)

@@ -215,6 +215,8 @@ class Customer(models.Model):
     shop_name = models.TextField()
     sold_area = models.CharField(max_length=800)
     phone_number = models.CharField(max_length=20)
+    product_purchased = models.CharField(max_length=400, blank=True, null=True)
+    bill_number = models.CharField(max_length=400, blank=True, null=True)
     phone_model = models.CharField(max_length=400, blank=True, null=True)
     sale_status = models.CharField(max_length=20, default="SOLD")
     prize_details = models.CharField(max_length=900, default="Thank You")
