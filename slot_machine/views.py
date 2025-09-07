@@ -6,7 +6,11 @@ from offers.serializers import CustomerSerializer, CustomerGiftSerializer
 from django.utils import timezone
 from offers.models import LuckyDrawSystem
 from offers.models import FixOffer, MobilePhoneOffer, ElectronicsShopOffer, Sales
-
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from rest_framework import status
+from offers.models import GiftItem
+from offers.serializers import GiftItemSerializer
 # Create your views here.
 
 
@@ -14,15 +18,9 @@ class SlotMachineListCreateView(generics.ListCreateAPIView):
     queryset = Customer.objects.all()
     serializer_class = CustomerSerializer
 
-    # def get_queryset(self):
-    #     return Customer.objects.filter(
-    #         lucky_draw_system__organization=self.request.user.organization
-    #     )
-
     def create(self, request, *args, **kwargs):
         lucky_draw_system = request.data.get("lucky_draw_system")
         customer_name = request.data.get("customer_name")
-
         phone_number = request.data.get("phone_number")
         email = request.data.get("email")
         region = request.data.get("region", "None")
@@ -34,23 +32,20 @@ class SlotMachineListCreateView(generics.ListCreateAPIView):
                 {"error": "Lucky Draw System not found."},
                 status=status.HTTP_404_NOT_FOUND,
             )
+
         customer = Customer.objects.create(
             lucky_draw_system=lucky_draw,
             customer_name=customer_name,
             phone_number=phone_number,
             email=email,
+            region=region,
         )
-
-        if region:
-            customer.region = region
 
         self.assign_gift(customer)
 
         serializer = CustomerGiftSerializer(customer)
         data = serializer.data
-        if (customer.gift is not None) and (customer.gift.image != ""):
-            data["gift"]["image"] = request.build_absolute_uri(
-                data["gift"]["image"])
+
         return Response(data, status=status.HTTP_201_CREATED)
 
     def assign_gift(self, customer):
@@ -63,15 +58,6 @@ class SlotMachineListCreateView(generics.ListCreateAPIView):
             defaults={"sales_count": 0},
         )
 
-        """ if not Sales.objects.filter(date=today_date, lucky_draw_system=lucky_draw_system).exists():
-            sales_today = Sales.objects.create(
-                date=today_date,
-                lucky_draw_system=lucky_draw_system,
-                sales_count=0
-            )
-        else:
-            sales_today = Sales.objects.get(date=today_date, lucky_draw_system=lucky_draw_system,sales_count=0) """
-
         sales_today.sales_count += 1
         sales_today.save()
 
@@ -79,15 +65,19 @@ class SlotMachineListCreateView(generics.ListCreateAPIView):
         phone_model = customer.phone_model
         phone_number = customer.phone_number
 
+        # Check Fixed Offers first (now supports multiple gifts)
         fixed_offer = FixOffer.objects.filter(
-            lucky_draw_system=lucky_draw_system, phone_number=phone_number, quantity__gt=0
+            lucky_draw_system=lucky_draw_system,
+            phone_number=phone_number,
+            quantity__gt=0
         ).first()
 
         if fixed_offer:
-            customer.gift = fixed_offer.gift
-            customer.prize_details = (
-                f"Congratulations! You've won {fixed_offer.gift.name}"
-            )
+            # Assign all gifts from the fixed offer
+            customer.gift.set(fixed_offer.gift.all())
+            gift_names = ", ".join(
+                [gift.name for gift in fixed_offer.gift.all()])
+            customer.prize_details = f"Congratulations! You've won {gift_names}"
             customer.save()
             fixed_offer.quantity -= 1
             fixed_offer.save()
@@ -102,14 +92,20 @@ class SlotMachineListCreateView(generics.ListCreateAPIView):
         )
 
         for offer in electronic_offers:
-            condition_met = self.check_offer_condition(offer, sales_count)
+            condition_met = self.check_offer_condition(
+                offer, sales_count, customer.region)
             validto_check = self.check_validto_condition(offer, phone_model)
 
             if condition_met and validto_check:
-                customer.gift = offer.gift
-                customer.prize_details = f"Congratulations! You've won {offer.gift.name} from our Electronics Shop Offer!"
+                # Assign all gifts from the offer
+                customer.gift.set(offer.gift.all())
+                gift_names = ", ".join(
+                    [gift.name for gift in offer.gift.all()])
+                customer.prize_details = f"Congratulations! You've won {gift_names} from our Electronics Shop Offer!"
                 customer.save()
 
+                # Decrease daily quantity
+                offer.daily_quantity -= 1
                 offer.save()
                 return
 
@@ -125,15 +121,19 @@ class SlotMachineListCreateView(generics.ListCreateAPIView):
             if region == "None" or region == "Other":
                 return False
 
-            region_counts = {
-                "Centeral Region": Customer.objects.filter(region="Centeral Region", gift=offer.gift).count(),
-                "Eastern Region": Customer.objects.filter(region="Eastern Region", gift=offer.gift).count(),
-                "Western Region": Customer.objects.filter(region="Western Region", gift=offer.gift).count(),
-            }
+            # For offers with multiple gifts, check region balance for all gifts
+            region_counts = {}
+            for gift in offer.gift.all():
+                region_counts[region] = Customer.objects.filter(
+                    region=region,
+                    gift=gift,
+                    date_of_purchase=today_date
+                ).count()
 
-            min_count = min(region_counts.values())
-
-            if region_counts[region] > min_count:
+            # You can implement your region limiting logic here
+            # For example, limit total gifts per region per day
+            max_gifts_per_region = 5  # Configure this as needed
+            if region_counts.get(region, 0) >= max_gifts_per_region:
                 return False
 
         if offer.has_time_limit:
@@ -141,40 +141,31 @@ class SlotMachineListCreateView(generics.ListCreateAPIView):
                 return False
 
         if offer.type_of_offer == "After every certain sale":
-            todayscount = Customer.objects.filter(
-                date_of_purchase=today_date, gift=offer.gift
-            ).count()
+            # Check how many customers have received gifts from this offer today
+            todays_gift_count = Customer.objects.filter(
+                date_of_purchase=today_date,
+                gift__in=offer.gift.all()
+            ).distinct().count()
+
             return (
                 sales_count % int(offer.offer_condition_value) == 0
-                and todayscount < offer.daily_quantity
+                and todays_gift_count < offer.daily_quantity
             )
         elif offer.type_of_offer == "At certain sale position":
             return str(sales_count) in offer.sale_numbers
-        return (
-            False  # If the offer type doesn't match any condition, it's not applicable
-        )
+
+        return False
 
     def check_validto_condition(self, offer, phone_model):
         if not offer.valid_condition.exists():
-            return True  # If there are no valid conditions, the offer is applicable to all devices
+            return True
 
         for condition in offer.valid_condition.all():
-            if phone_model.startswith(condition.condition):
+            if phone_model and phone_model.startswith(condition.condition):
                 return True
 
-        return False  # If there are valid conditions but no match, the offer is not valid for this phone model
+        return False
 
-        # if hasattr(offer, "valid_condition"):
-        #     conditions = offer.valid_condition.all()
-        #     return not conditions or any(
-        #         phone_model.startswith(cond.condition) for cond in conditions
-        #     )
-        # return True  # If there's no valid_condition, assume it's valid for all
-from rest_framework.decorators import api_view
-from rest_framework.response import Response
-from rest_framework import status
-from offers.models import GiftItem
-from offers.serializers import GiftItemSerializer
 
 @api_view(["GET"])
 def GetGifts(request):

@@ -46,7 +46,8 @@ class GetOrganizationDetails(generics.GenericAPIView):
     def get(self, request):
         organization_id = request.query_params.get("organization_id")
         try:
-            organization = LuckyDrawSystem.objects.get(organization__id=organization_id)
+            organization = LuckyDrawSystem.objects.get(
+                organization__id=organization_id)
             serializer = self.get_serializer(organization)
             return Response(serializer.data)
         except LuckyDrawSystem.DoesNotExist:
@@ -459,7 +460,8 @@ class MobileOfferConditionRetrieveUpdateDestroyView(
 
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
-        offer_type_name = request.data.get("offer_type_name", instance.offer_type_name)
+        offer_type_name = request.data.get(
+            "offer_type_name", instance.offer_type_name)
         condition = request.data.get("condition", instance.condition)
 
         instance.offer_type_name = offer_type_name
@@ -497,7 +499,8 @@ class MobilePhoneOfferListCreateView(generics.ListCreateAPIView):
         gift_id = data.get("gift")
         priority = data.get("priority")
 
-        lucky_draw_system = LuckyDrawSystem.objects.get(id=lucky_draw_system_id)
+        lucky_draw_system = LuckyDrawSystem.objects.get(
+            id=lucky_draw_system_id)
         gift = GiftItem.objects.get(id=gift_id)
 
         mobile_phone_offer = MobilePhoneOffer.objects.create(
@@ -630,7 +633,8 @@ class RechargeCardOfferRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyA
         instance.lucky_draw_system = request.data.get(
             "lucky_draw_system", instance.lucky_draw_system
         )
-        instance.start_date = request.data.get("start_date", instance.start_date)
+        instance.start_date = request.data.get(
+            "start_date", instance.start_date)
         instance.end_date = request.data.get("end_date", instance.end_date)
         instance.daily_quantity = request.data.get(
             "daily_quantity", instance.daily_quantity
@@ -641,7 +645,8 @@ class RechargeCardOfferRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyA
         instance.offer_condition_value = request.data.get(
             "offer_condition_value", instance.offer_condition_value
         )
-        instance.sale_numbers = request.data.get("sale_numbers", instance.sale_numbers)
+        instance.sale_numbers = request.data.get(
+            "sale_numbers", instance.sale_numbers)
         instance.amount = request.data.get("amount", instance.amount)
         instance.provider = request.data.get("provider", instance.provider)
 
@@ -735,8 +740,10 @@ class ElectronicsShopOfferListCreateView(generics.ListCreateAPIView):
         type_of_offer = request.data.get("type_of_offer")
         offer_condition_value = request.data.get("offer_condition_value")
         sale_numbers = request.data.get("sale_numbers")
+        gifts = request.data.get("gift", [])
 
-        lucky_draw_system = LuckyDrawSystem.objects.get(id=lucky_draw_system_id)
+        lucky_draw_system = LuckyDrawSystem.objects.get(
+            id=lucky_draw_system_id)
 
         electronics_shop_offer = ElectronicsShopOffer.objects.create(
             lucky_draw_system=lucky_draw_system,
@@ -747,6 +754,8 @@ class ElectronicsShopOfferListCreateView(generics.ListCreateAPIView):
             offer_condition_value=offer_condition_value,
             sale_numbers=sale_numbers,
         )
+
+        electronics_shop_offer.gift.set(gifts)
 
         # Handle many-to-many relationship for valid_condition
         valid_conditions = request.data.get("valid_condition", [])
@@ -781,7 +790,8 @@ class ElectronicsShopOfferRetrieveUpdateDestroyView(
             id=lucky_draw_system_id
         )
 
-        instance.start_date = request.data.get("start_date", instance.start_date)
+        instance.start_date = request.data.get(
+            "start_date", instance.start_date)
         instance.end_date = request.data.get("end_date", instance.end_date)
         instance.daily_quantity = request.data.get(
             "daily_quantity", instance.daily_quantity
@@ -792,7 +802,8 @@ class ElectronicsShopOfferRetrieveUpdateDestroyView(
         instance.offer_condition_value = request.data.get(
             "offer_condition_value", instance.offer_condition_value
         )
-        instance.sale_numbers = request.data.get("sale_numbers", instance.sale_numbers)
+        instance.sale_numbers = request.data.get(
+            "sale_numbers", instance.sale_numbers)
 
         # Handling many-to-many relationship for valid_condition
         valid_conditions = request.data.get("valid_condition", [])
@@ -880,7 +891,7 @@ class CustomerListCreateView(generics.ListCreateAPIView):
             how_know_about_campaign=how_know_about_campaign,
             profession=profession,
         )
-        
+
         if region:
             customer.region = region
 
@@ -889,7 +900,8 @@ class CustomerListCreateView(generics.ListCreateAPIView):
         serializer = CustomerGiftSerializer(customer)
         data = serializer.data
         if (customer.gift is not None) and (customer.gift.image != ""):
-            data["gift"]["image"] = request.build_absolute_uri(data["gift"]["image"])
+            data["gift"]["image"] = request.build_absolute_uri(
+                data["gift"]["image"])
         return Response(data, status=status.HTTP_201_CREATED)
 
     def assign_gift(self, customer):
@@ -941,9 +953,11 @@ class CustomerListCreateView(generics.ListCreateAPIView):
 
         for offer in mobile_offers:
             if customer.region != "None":
-                condition_met = self.check_offer_condition(offer, sales_count,customer.region)
+                condition_met = self.check_offer_condition(
+                    offer, sales_count, customer.region)
             else:
-                condition_met = self.check_offer_condition(offer, sales_count,"Other")
+                condition_met = self.check_offer_condition(
+                    offer, sales_count, "Other")
             validto_check = self.check_validto_condition(offer, phone_model)
 
             if condition_met and validto_check:
@@ -951,11 +965,11 @@ class CustomerListCreateView(generics.ListCreateAPIView):
                 customer.prize_details = (
                     f"Congratulations! You've won {offer.gift.name}"
                 )
-                
+
                 customer.save()
                 offer.save()
                 return
-            
+
         # Check Electronic Shop Offers
         electronic_offers = ElectronicsShopOffer.objects.filter(
             lucky_draw_system=lucky_draw_system,
@@ -972,7 +986,7 @@ class CustomerListCreateView(generics.ListCreateAPIView):
                 customer.gift = offer.gift
                 customer.prize_details = f"Congratulations! You've won {offer.gift.name} from our Electronics Shop Offer!"
                 customer.save()
-                
+
                 offer.save()
                 return
 
@@ -980,29 +994,29 @@ class CustomerListCreateView(generics.ListCreateAPIView):
         customer.prize_details = "Thank you for your purchase!"
         customer.save()
 
-    def check_offer_condition(self, offer, sales_count,region):
+    def check_offer_condition(self, offer, sales_count, region):
         today_date = timezone.now().date()
         today_time = timezone.now().time()
 
         if offer.has_region_limit:
             if region == "None" or region == "Other":
                 return False
-            
+
             region_counts = {
-                "Centeral Region": Customer.objects.filter(region="Centeral Region",gift=offer.gift).count(),
-                "Eastern Region": Customer.objects.filter(region="Eastern Region",gift=offer.gift).count(),
-                "Western Region": Customer.objects.filter(region="Western Region",gift=offer.gift).count(),
+                "Centeral Region": Customer.objects.filter(region="Centeral Region", gift=offer.gift).count(),
+                "Eastern Region": Customer.objects.filter(region="Eastern Region", gift=offer.gift).count(),
+                "Western Region": Customer.objects.filter(region="Western Region", gift=offer.gift).count(),
             }
 
             min_count = min(region_counts.values())
 
             if region_counts[region] > min_count:
                 return False
-            
+
         if offer.has_time_limit:
             if today_time < offer.start_time or today_time > offer.end_time:
                 return False
-            
+
         if offer.type_of_offer == "After every certain sale":
             todayscount = Customer.objects.filter(
                 date_of_purchase=today_date, gift=offer.gift
@@ -1020,13 +1034,13 @@ class CustomerListCreateView(generics.ListCreateAPIView):
     def check_validto_condition(self, offer, phone_model):
         if not offer.valid_condition.exists():
             return True  # If there are no valid conditions, the offer is applicable to all devices
-        
+
         for condition in offer.valid_condition.all():
             if phone_model.startswith(condition.condition):
                 return True
 
         return False  # If there are valid conditions but no match, the offer is not valid for this phone model
-        
+
         # if hasattr(offer, "valid_condition"):
         #     conditions = offer.valid_condition.all()
         #     return not conditions or any(
@@ -1054,7 +1068,8 @@ def UploadImeiBulk(request):
     if request.method == "POST":
         file = request.FILES["file"]
         lucky_draw_system_id = request.data.get("lucky_draw_system")
-        lucky_draw_system = LuckyDrawSystem.objects.get(id=lucky_draw_system_id)
+        lucky_draw_system = LuckyDrawSystem.objects.get(
+            id=lucky_draw_system_id)
 
         if file.name.endswith(".csv"):
             data_set = file.read().decode("UTF-8")
@@ -1094,15 +1109,16 @@ def download_customers_detail(request):
         queryset = Customer.objects.all()
 
         if luckydraw is not None:
-            system = LuckyDrawSystem.objects.get(id =luckydraw)
+            system = LuckyDrawSystem.objects.get(id=luckydraw)
             queryset = queryset.filter(lucky_draw_system=system)
 
         if start_date and end_date:
-            queryset = queryset.filter(date_of_purchase__range=(start_date, end_date))
-        
+            queryset = queryset.filter(
+                date_of_purchase__range=(start_date, end_date))
+
         if start_date and not end_date:
             queryset = queryset.filter(date_of_purchase=start_date)
-        
+
         if end_date and not start_date:
             queryset = queryset.filter(date_of_purchase=end_date)
 
@@ -1152,14 +1168,17 @@ def download_customers_detail(request):
 
         return response
 
-def export_data(request,pk):
+
+def export_data(request, pk):
     response = HttpResponse(content_type="text/csv")
     response["Content-Disposition"] = 'attachment; filename="today.csv"'
     writer = csv.writer(response)
     luckydraw = LuckyDrawSystem.objects.get(id=pk)
     cust = Customer.objects.filter(lucky_draw_system=luckydraw)
 
-    writer.writerow(["Customer Name", "Shop Name", "Sold Area", "Phone Number", "Email", "Phone Model", "IMEI", "How Know About Campaign", "Profession", "Region", "Gift", "Date of Purchase", "Prize Details", "Recharge Card", "NTC Recharge Card", "Amount of Ntc Card"])
+    writer.writerow(["Customer Name", "Shop Name", "Sold Area", "Phone Number", "Email", "Phone Model", "IMEI", "How Know About Campaign",
+                    "Profession", "Region", "Gift", "Date of Purchase", "Prize Details", "Recharge Card", "NTC Recharge Card", "Amount of Ntc Card"])
     for customer in cust:
-        writer.writerow([customer.customer_name, customer.shop_name, customer.sold_area, customer.phone_number, customer.email, customer.phone_model, customer.imei, customer.how_know_about_campaign, customer.profession, customer.region, customer.gift, customer.date_of_purchase, customer.prize_details, customer.recharge_card, customer.ntc_recharge_card, customer.amount_of_card])
+        writer.writerow([customer.customer_name, customer.shop_name, customer.sold_area, customer.phone_number, customer.email, customer.phone_model, customer.imei, customer.how_know_about_campaign,
+                        customer.profession, customer.region, customer.gift, customer.date_of_purchase, customer.prize_details, customer.recharge_card, customer.ntc_recharge_card, customer.amount_of_card])
     return response

@@ -52,7 +52,8 @@ class LuckyDrawSystemSerializer(serializers.ModelSerializer):
 class RechargeCardSerializer(serializers.ModelSerializer):
     class Meta:
         model = RechargeCard
-        fields = ["lucky_draw_system", "cardno", "provider", "amount", "is_assigned"]
+        fields = ["lucky_draw_system", "cardno",
+                  "provider", "amount", "is_assigned"]
 
 
 class IMEINOSerializer(serializers.ModelSerializer):
@@ -99,6 +100,10 @@ class ElectronicShopOfferConditionSerializer(serializers.ModelSerializer):
 
 
 class ElectronicsShopOfferSerializer(serializers.ModelSerializer):
+    gift = serializers.PrimaryKeyRelatedField(
+        many=True, queryset=GiftItem.objects.all()
+    )
+
     class Meta:
         model = ElectronicsShopOffer
         fields = "__all__"
@@ -123,7 +128,7 @@ class CustomerSerializer(serializers.ModelSerializer):
 
 class CustomerGiftSerializer(serializers.ModelSerializer):
 
-    gift = GiftItemSerializer()
+    gift = GiftItemSerializer(many=True)
 
     class Meta:
         model = Customer
