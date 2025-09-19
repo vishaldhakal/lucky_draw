@@ -6,6 +6,7 @@ from tinymce.widgets import TinyMCE
 
 
 class GiftItemAdmin(ModelAdmin):
+    list_display = ('name', 'category', 'lucky_draw_system')
     search_fields = ['name']  # or whichever fields should be searchable
 
 
