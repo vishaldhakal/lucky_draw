@@ -63,7 +63,7 @@ class GiftItem(models.Model):
         max_length=10, choices=GIFT_CATEGORY_CHOICES, default='minor', null=True, blank=True)
 
     def __str__(self):
-        return f"{self.name} - {self.category}"
+        return f"{self.name} - {self.category}-{self.lucky_draw_system.name}"
 
 
 class RechargeCard(models.Model):
