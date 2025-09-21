@@ -888,8 +888,18 @@ class CustomerListCreateView(generics.ListCreateAPIView):
 
         serializer = CustomerGiftSerializer(customer)
         data = serializer.data
-        if (customer.gift is not None) and (customer.gift.image != ""):
-            data["gift"]["image"] = request.build_absolute_uri(data["gift"]["image"])
+        # Build absolute URL for gift image, handling both dict and list serializer outputs
+        gift_data = data.get("gift")
+        if isinstance(gift_data, dict):
+            image = gift_data.get("image")
+            if image:
+                gift_data["image"] = request.build_absolute_uri(image)
+        elif isinstance(gift_data, list) and gift_data:
+            image = (
+                gift_data[0].get("image") if isinstance(gift_data[0], dict) else None
+            )
+            if image:
+                gift_data[0]["image"] = request.build_absolute_uri(image)
         return Response(data, status=status.HTTP_201_CREATED)
 
     def assign_gift(self, customer):
@@ -923,7 +933,8 @@ class CustomerListCreateView(generics.ListCreateAPIView):
         ).first()
 
         if fixed_offer:
-            customer.gift = fixed_offer.gift
+            # Customer.gift is ManyToMany; assign a single gift
+            customer.gift.set([fixed_offer.gift])
             customer.prize_details = (
                 f"Congratulations! You've won {fixed_offer.gift.name}"
             )
@@ -949,7 +960,8 @@ class CustomerListCreateView(generics.ListCreateAPIView):
             validto_check = self.check_validto_condition(offer, phone_model)
 
             if condition_met and validto_check:
-                customer.gift = offer.gift
+                # Customer.gift is ManyToMany; assign single FK gift
+                customer.gift.set([offer.gift])
                 customer.prize_details = (
                     f"Congratulations! You've won {offer.gift.name}"
                 )
@@ -984,7 +996,8 @@ class CustomerListCreateView(generics.ListCreateAPIView):
                     # No gift available to assign; skip to next offer
                     continue
 
-                customer.gift = selected_gift
+                # Customer.gift is ManyToMany; assign the selected gift
+                customer.gift.set([selected_gift])
                 customer.prize_details = f"Congratulations! You've won {selected_gift.name} from our Electronics Shop Offer!"
                 customer.save()
 
