@@ -1,16 +1,22 @@
-from rest_framework import generics
-from rest_framework.response import Response
-from rest_framework import status
-from offers.models import Customer, IMEINO
-from offers.serializers import CustomerSerializer, CustomerGiftSerializer
 from django.utils import timezone
-from offers.models import LuckyDrawSystem
-from offers.models import FixOffer, MobilePhoneOffer, ElectronicsShopOffer, Sales
+from rest_framework import generics, status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from rest_framework import status
-from offers.models import GiftItem
-from offers.serializers import GiftItemSerializer
+
+from offers.models import (
+    Customer,
+    ElectronicsShopOffer,
+    FixOffer,
+    GiftItem,
+    LuckyDrawSystem,
+    Sales,
+)
+from offers.serializers import (
+    CustomerGiftSerializer,
+    CustomerSerializer,
+    GiftItemSerializer,
+)
+
 # Create your views here.
 
 
@@ -84,13 +90,12 @@ class SlotMachineListCreateView(generics.ListCreateAPIView):
         fixed_offer = FixOffer.objects.filter(
             lucky_draw_system=lucky_draw_system,
             phone_number=phone_number,
-            quantity__gt=0
+            quantity__gt=0,
         ).first()
 
         if fixed_offer:
             customer.gift.set(fixed_offer.gift.all())
-            gift_names = ", ".join(
-                [gift.name for gift in fixed_offer.gift.all()])
+            gift_names = ", ".join([gift.name for gift in fixed_offer.gift.all()])
             customer.prize_details = f"Congratulations! You've won {gift_names}"
             customer.save()
             fixed_offer.quantity -= 1
@@ -107,7 +112,8 @@ class SlotMachineListCreateView(generics.ListCreateAPIView):
 
         # Step 1: collect offers that match condition and phone model
         matching_offers = [
-            offer for offer in electronic_offers
+            offer
+            for offer in electronic_offers
             if self.check_offer_condition(offer, sales_count, customer.region)
             and self.check_validto_condition(offer, phone_model)
         ]
@@ -141,8 +147,9 @@ class SlotMachineListCreateView(generics.ListCreateAPIView):
             offers_by_category = {}
             for offer in offers:
                 for gift in offer.gift.all():
-                    offers_by_category.setdefault(
-                        gift.category, []).append((offer, gift))
+                    offers_by_category.setdefault(gift.category, []).append(
+                        (offer, gift)
+                    )
 
             # Assign best gift per category (lowest assigned ratio)
             for category, gift_options in offers_by_category.items():
@@ -151,8 +158,7 @@ class SlotMachineListCreateView(generics.ListCreateAPIView):
 
                 for offer, gift in gift_options:
                     already_assigned = Customer.objects.filter(
-                        date_of_purchase=today_date,
-                        gift=gift
+                        date_of_purchase=today_date, gift=gift
                     ).count()
 
                     total_quantity = max(offer.daily_quantity, 1)
@@ -188,9 +194,7 @@ class SlotMachineListCreateView(generics.ListCreateAPIView):
             region_counts = {}
             for gift in offer.gift.all():
                 region_counts[region] = Customer.objects.filter(
-                    region=region,
-                    gift=gift,
-                    date_of_purchase=today_date
+                    region=region, gift=gift, date_of_purchase=today_date
                 ).count()
 
             max_gifts_per_region = 5  # configurable
@@ -202,10 +206,13 @@ class SlotMachineListCreateView(generics.ListCreateAPIView):
                 return False
 
         if offer.type_of_offer == "After every certain sale":
-            todays_gift_count = Customer.objects.filter(
-                date_of_purchase=today_date,
-                gift__in=offer.gift.all()
-            ).distinct().count()
+            todays_gift_count = (
+                Customer.objects.filter(
+                    date_of_purchase=today_date, gift__in=offer.gift.all()
+                )
+                .distinct()
+                .count()
+            )
 
             return (
                 sales_count % int(offer.offer_condition_value) == 0
