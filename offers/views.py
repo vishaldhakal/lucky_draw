@@ -830,12 +830,6 @@ class CustomerListCreateView(generics.ListCreateAPIView):
         email = request.data.get("email")
         region = request.data.get("region")
 
-        if Customer.objects.filter(phone_number=phone_number).exists():
-            return Response(
-                {"error": "A customer with this phone number already exists."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
         imei = request.data.get("imei")
 
         if not imei:
