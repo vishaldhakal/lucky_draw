@@ -4,6 +4,7 @@ import io
 
 from django.http import HttpResponse
 from django.utils import timezone
+from django.db.models import Count
 from rest_framework import generics, status
 from rest_framework.decorators import api_view
 from rest_framework.permissions import IsAuthenticated
@@ -1091,6 +1092,72 @@ def GetGiftList(request):
     for gift in data:
         gift["image"] = request.build_absolute_uri(gift["image"])
     return Response(data)
+
+
+@api_view(["GET"])
+def gift_count_last_100(request):
+    """
+    Returns the number of each gift assigned to customers in the last 100 orders
+    for a given lucky draw system.
+
+    Query Params:
+    - lucky_draw_system_id: int (required)
+
+    Response format:
+    {
+      "results": [
+        {"gift_id": 1, "gift_name": "Gift A", "count": 10},
+        {"gift_id": 2, "gift_name": "Gift B", "count": 5}
+      ],
+      "total_customers_considered": 100
+    }
+    """
+    lucky_draw_system_id = request.query_params.get("lucky_draw_system_id")
+    if not lucky_draw_system_id:
+        return Response(
+            {"error": "'lucky_draw_system_id' is required as a query parameter."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    try:
+        lds = LuckyDrawSystem.objects.get(id=lucky_draw_system_id)
+    except LuckyDrawSystem.DoesNotExist:
+        return Response(
+            {"error": "LuckyDrawSystem not found."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    # Get last 100 customers (orders) for the lucky draw system
+    last_ids = list(
+        Customer.objects.filter(lucky_draw_system=lds)
+        .order_by("-id")
+        .values_list("id", flat=True)[:100]
+    )
+
+    # Aggregate counts of gifts from those customers via the M2M relation
+    # Exclude customers without any assigned gift
+    gift_counts = (
+        Customer.objects.filter(id__in=last_ids, gift__isnull=False)
+        .values("gift__id", "gift__name")
+        .annotate(count=Count("gift"))
+        .order_by("-count", "gift__name")
+    )
+
+    results = [
+        {
+            "gift_id": row["gift__id"],
+            "gift_name": row["gift__name"],
+            "count": row["count"],
+        }
+        for row in gift_counts
+    ]
+
+    return Response(
+        {
+            "results": results,
+            "total_customers_considered": len(last_ids),
+        }
+    )
 
 
 @api_view(["POST"])

@@ -119,6 +119,12 @@ urlpatterns = [
     ),
     # Get all gift list
     path("get-gift-list/", views.GetGiftList, name="get-gift-list"),
+    # Gift count in last 100 orders for a lucky draw
+    path(
+        "gift-count-last-100/",
+        views.gift_count_last_100,
+        name="gift-count-last-100",
+    ),
     # Upload IMEINo
     path("upload-imeino/", views.UploadImeiBulk, name="upload-imeino"),
     path("export-data/<int:pk>/", views.export_data, name="export-exportdata"),
