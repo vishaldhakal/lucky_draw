@@ -1254,7 +1254,9 @@ def download_customers_detail(request):
                     customer.sale_status,
                     customer.prize_details,
                     customer.imei,
-                    customer.gift,
+                    ", ".join([gift.name for gift in customer.gift.all()])
+                    if customer.gift.exists()
+                    else "",
                     customer.date_of_purchase,
                     customer.how_know_about_campaign,
                     customer.profession,
