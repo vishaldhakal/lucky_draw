@@ -2,9 +2,9 @@ import csv
 import datetime
 import io
 
+from django.db.models import Count
 from django.http import HttpResponse
 from django.utils import timezone
-from django.db.models import Count
 from rest_framework import generics, status
 from rest_framework.decorators import api_view
 from rest_framework.permissions import IsAuthenticated
@@ -1304,7 +1304,9 @@ def export_data(request, pk):
                 customer.how_know_about_campaign,
                 customer.profession,
                 customer.region,
-                customer.gift,
+                ", ".join([gift.name for gift in customer.gift.all()])
+                if customer.gift.exists()
+                else "",
                 customer.date_of_purchase,
                 customer.prize_details,
                 customer.recharge_card,
