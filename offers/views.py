@@ -371,17 +371,20 @@ class FixOfferListCreateView(generics.ListCreateAPIView):
         )
 
     def create(self, request, *args, **kwargs):
-        lucky_draw_system = request.data.get("lucky_draw_system")
+        lucky_draw_system_id = request.data.get("lucky_draw_system")
         imei_no = request.data.get("imei_no")
         quantity = request.data.get("quantity")
-        gift = request.data.get("gift")
+        gift_ids = request.data.get("gift", [])
+
+        lucky_draw_system = LuckyDrawSystem.objects.get(id=lucky_draw_system_id)
 
         fix_offer = FixOffer.objects.create(
             lucky_draw_system=lucky_draw_system,
             imei_no=imei_no,
             quantity=quantity,
-            gift=gift,
         )
+        if gift_ids:
+            fix_offer.gift.set(gift_ids)
         fix_offer.save()
         serializer = FixOfferSerializer(fix_offer)
         return Response(serializer.data)
@@ -398,19 +401,19 @@ class FixOfferRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
 
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
-        lucky_draw_system = request.data.get("lucky_draw_system")
+        lucky_draw_system_id = request.data.get("lucky_draw_system")
         imei_no = request.data.get("imei_no")
         quantity = request.data.get("quantity")
-        gift = request.data.get("gift")
+        gift_ids = request.data.get("gift", [])
 
-        if lucky_draw_system is not None:
-            instance.lucky_draw_system_id = lucky_draw_system
+        if lucky_draw_system_id is not None:
+            instance.lucky_draw_system = LuckyDrawSystem.objects.get(id=lucky_draw_system_id)
         if imei_no is not None:
             instance.imei_no = imei_no
         if quantity is not None:
-            instance.daily_quantity = quantity
-        if gift is not None:
-            instance.gift_id = gift
+            instance.quantity = quantity
+        if gift_ids is not None:
+            instance.gift.set(gift_ids)
 
         instance.save()
         serializer = self.get_serializer(instance)
@@ -928,15 +931,16 @@ class CustomerListCreateView(generics.ListCreateAPIView):
         ).first()
 
         if fixed_offer:
-            # Customer.gift is ManyToMany; assign a single gift
-            customer.gift.set([fixed_offer.gift])
-            customer.prize_details = (
-                f"Congratulations! You've won {fixed_offer.gift.name}"
-            )
-            customer.save()
-            fixed_offer.quantity -= 1
-            fixed_offer.save()
-            return
+            selected_gift = fixed_offer.gift.first()
+            if selected_gift:
+                customer.gift.set([selected_gift])
+                customer.prize_details = (
+                    f"Congratulations! You've won {selected_gift.name}"
+                )
+                customer.save()
+                fixed_offer.quantity -= 1
+                fixed_offer.save()
+                return
 
         mobile_offers = MobilePhoneOffer.objects.filter(
             lucky_draw_system=lucky_draw_system,

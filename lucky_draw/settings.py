@@ -79,26 +79,17 @@ WSGI_APPLICATION = 'lucky_draw.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
-""" DATABASES = {
+DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': BASE_DIR / 'db.sqlite3',
     }
-} """
+}
+
+
 
 
 """ DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql_psycopg2",
-        "NAME": "lucky_draw",
-        "USER": "lucky_draw_admin",
-        "PASSWORD": "DatabaseUserPassword",
-        "HOST": "localhost",
-        "PORT": "",
-    }
-} """
-
-DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql_psycopg2",
         "NAME": "lucky_draw",
@@ -107,7 +98,7 @@ DATABASES = {
         "HOST": "localhost",
         "PORT": "",
     }
-}
+} """
 
 DATA_UPLOAD_MAX_MEMORY_SIZE = None
 

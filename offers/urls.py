@@ -94,17 +94,27 @@ urlpatterns = [
         views.RechargeCardOfferRetrieveUpdateDestroyView.as_view(),
         name="recharge-card-offer-detail",
     ),
-    path("electronic-offers/", views.ElectronicsShopOfferListCreateView.as_view(),
-         name="electronics-offer-list-create"),
-    path("electronic-offers/<int:pk>/",
-         views.ElectronicsShopOfferRetrieveUpdateDestroyView.as_view(), name="electronics-offer-detail"),
-
+    path(
+        "electronic-offers/",
+        views.ElectronicsShopOfferListCreateView.as_view(),
+        name="electronics-offer-list-create",
+    ),
+    path(
+        "electronic-offers/<int:pk>/",
+        views.ElectronicsShopOfferRetrieveUpdateDestroyView.as_view(),
+        name="electronics-offer-detail",
+    ),
     # ElectronicOfferCondition URLs
-    path("electronic-offer-condition/", views.ElectronicOfferConditionListCreateView.as_view(),
-         name="electronics-offer-condition-list-create"),
-    path("electronic-offer-condition/<int:pk>/",
-         views.ElectronicOfferConditionRetrieveUpdateDestroyView.as_view(), name="electronics-offer-condition-detail"),
-
+    path(
+        "electronic-offer-condition/",
+        views.ElectronicOfferConditionListCreateView.as_view(),
+        name="electronics-offer-condition-list-create",
+    ),
+    path(
+        "electronic-offer-condition/<int:pk>/",
+        views.ElectronicOfferConditionRetrieveUpdateDestroyView.as_view(),
+        name="electronics-offer-condition-detail",
+    ),
     # Customer URLs
     path(
         "customers/",
