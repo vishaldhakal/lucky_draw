@@ -1193,6 +1193,29 @@ def UploadImeiBulk(request):
     )
 
 
+@api_view(["GET"])
+def export_imei(request):
+    if request.method == "GET":
+        luckydraw = request.GET.get("lucky_draw_system_id", None)
+
+        queryset = IMEINO.objects.all()
+        if luckydraw is not None:
+            system = LuckyDrawSystem.objects.get(id=luckydraw)
+            queryset = queryset.filter(lucky_draw_system=system)
+
+        response = HttpResponse(content_type="text/csv")
+        response["Content-Disposition"] = 'attachment; filename="imei.csv"'
+        writer = csv.writer(response)
+        writer.writerow(["IMEI", "Phone Model"])
+        for imei in queryset:
+            writer.writerow([imei.imei_no, imei.phone_model])
+        return response
+    return Response(
+        {"error": "Invalid request method. Please use POST method."},
+        status=status.HTTP_400_BAD_REQUEST,
+    )
+
+
 @api_view(["POST"])
 def download_customers_detail(request):
     if request.method == "POST":

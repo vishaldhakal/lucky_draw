@@ -1,4 +1,5 @@
 from django.urls import path
+
 from . import views
 
 urlpatterns = [
@@ -94,17 +95,27 @@ urlpatterns = [
         views.RechargeCardOfferRetrieveUpdateDestroyView.as_view(),
         name="recharge-card-offer-detail",
     ),
-    path("electronic-offers/", views.ElectronicsShopOfferListCreateView.as_view(),
-         name="electronics-offer-list-create"),
-    path("electronic-offers/<int:pk>/",
-         views.ElectronicsShopOfferRetrieveUpdateDestroyView.as_view(), name="electronics-offer-detail"),
-
+    path(
+        "electronic-offers/",
+        views.ElectronicsShopOfferListCreateView.as_view(),
+        name="electronics-offer-list-create",
+    ),
+    path(
+        "electronic-offers/<int:pk>/",
+        views.ElectronicsShopOfferRetrieveUpdateDestroyView.as_view(),
+        name="electronics-offer-detail",
+    ),
     # ElectronicOfferCondition URLs
-    path("electronic-offer-condition/", views.ElectronicOfferConditionListCreateView.as_view(),
-         name="electronics-offer-condition-list-create"),
-    path("electronic-offer-condition/<int:pk>/",
-         views.ElectronicOfferConditionRetrieveUpdateDestroyView.as_view(), name="electronics-offer-condition-detail"),
-
+    path(
+        "electronic-offer-condition/",
+        views.ElectronicOfferConditionListCreateView.as_view(),
+        name="electronics-offer-condition-list-create",
+    ),
+    path(
+        "electronic-offer-condition/<int:pk>/",
+        views.ElectronicOfferConditionRetrieveUpdateDestroyView.as_view(),
+        name="electronics-offer-condition-detail",
+    ),
     # Customer URLs
     path(
         "customers/",
@@ -128,4 +139,5 @@ urlpatterns = [
     # Upload IMEINo
     path("upload-imeino/", views.UploadImeiBulk, name="upload-imeino"),
     path("export-data/<int:pk>/", views.export_data, name="export-exportdata"),
+    path("export-imei/", views.export_imei, name="export-imei"),
 ]
