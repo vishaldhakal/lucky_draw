@@ -63,6 +63,7 @@ class IMEINOSerializer(serializers.ModelSerializer):
 
 
 class FixOfferSerializer(serializers.ModelSerializer):
+    gift = serializers.PrimaryKeyRelatedField(many=True, queryset=GiftItem.objects.all())
     class Meta:
         model = FixOffer
         fields = ["lucky_draw_system", "imei_no", "quantity", "gift"]
