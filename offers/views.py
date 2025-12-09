@@ -407,7 +407,9 @@ class FixOfferRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
         gift_ids = request.data.get("gift", [])
 
         if lucky_draw_system_id is not None:
-            instance.lucky_draw_system = LuckyDrawSystem.objects.get(id=lucky_draw_system_id)
+            instance.lucky_draw_system = LuckyDrawSystem.objects.get(
+                id=lucky_draw_system_id
+            )
         if imei_no is not None:
             instance.imei_no = imei_no
         if quantity is not None:
@@ -1003,8 +1005,17 @@ class CustomerListCreateView(generics.ListCreateAPIView):
                 offer.save()
                 return
 
-        # If no gift assigned
-        customer.prize_details = "Thank you for your purchase!"
+        # If no gift assigned, search for "better luck next time" gift
+        better_luck_gift = GiftItem.objects.filter(
+            lucky_draw_system=lucky_draw_system, name__icontains="better luck next time"
+        ).first()
+
+        if better_luck_gift:
+            customer.gift.set([better_luck_gift])
+            customer.prize_details = "Better luck next time!"
+        else:
+            customer.prize_details = "Thank you for your purchase!"
+
         customer.save()
 
     def check_offer_condition(self, offer, sales_count, region):
