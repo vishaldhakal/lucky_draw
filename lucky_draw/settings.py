@@ -167,6 +167,10 @@ MEDIA_ROOT = Path(BASE_DIR, "media")
 
 CORS_ORIGIN_ALLOW_ALL = True
 
+CSRF_TRUSTED_ORIGINS = [
+    "https://www.admin.vivooffers.com",
+]
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
