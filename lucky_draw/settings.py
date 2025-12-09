@@ -169,6 +169,7 @@ CORS_ORIGIN_ALLOW_ALL = True
 
 CSRF_TRUSTED_ORIGINS = [
     "https://www.admin.vivooffers.com",
+    "https://admin.vivooffers.com",
 ]
 
 # Default primary key field type
