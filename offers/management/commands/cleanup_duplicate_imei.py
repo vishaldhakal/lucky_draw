@@ -46,32 +46,35 @@ class Command(BaseCommand):
 
             # Find records where phone_model contains 'vivo' (case-insensitive)
             vivo_records = [r for r in records if "vivo" in r.phone_model.lower()]
+            non_vivo_records = [
+                r for r in records if "vivo" not in r.phone_model.lower()
+            ]
 
             if vivo_records:
-                # Delete all but one vivo record (keep the first one)
-                records_to_delete = vivo_records[1:]
+                # Delete ALL vivo records when duplicates exist
+                for record in vivo_records:
+                    if dry_run:
+                        self.stdout.write(
+                            self.style.WARNING(
+                                f"  [DRY RUN] Would delete: IMEI='{record.imei_no}', "
+                                f"Model={record.phone_model}, ID={record.id}, Used={record.used}"
+                            )
+                        )
+                    else:
+                        self.stdout.write(
+                            self.style.SUCCESS(
+                                f"  Deleting: IMEI='{record.imei_no}', "
+                                f"Model={record.phone_model}, ID={record.id}, Used={record.used}"
+                            )
+                        )
+                        record.delete()
+                        deleted_count += 1
 
-                if records_to_delete:
-                    for record in records_to_delete:
-                        if dry_run:
-                            self.stdout.write(
-                                self.style.WARNING(
-                                    f"  [DRY RUN] Would delete: IMEI='{record.imei_no}', "
-                                    f"Model={record.phone_model}, ID={record.id}, Used={record.used}"
-                                )
-                            )
-                        else:
-                            self.stdout.write(
-                                self.style.SUCCESS(
-                                    f"  Deleting: IMEI='{record.imei_no}', "
-                                    f"Model={record.phone_model}, ID={record.id}, Used={record.used}"
-                                )
-                            )
-                            record.delete()
-                            deleted_count += 1
-                else:
+                if non_vivo_records:
                     self.stdout.write(
-                        self.style.NOTICE("  Only 1 vivo record found, keeping it")
+                        self.style.NOTICE(
+                            f"  Kept {len(non_vivo_records)} non-vivo record(s)"
+                        )
                     )
             else:
                 self.stdout.write(
