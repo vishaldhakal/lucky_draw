@@ -1,5 +1,4 @@
 from django.core.management.base import BaseCommand
-from django.db.models import Count
 
 from offers.models import IMEINO
 
@@ -17,29 +16,38 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         dry_run = options["dry_run"]
 
-        # Find all IMEI numbers that have duplicates
-        duplicate_imeis = (
-            IMEINO.objects.values("imei_no")
-            .annotate(count=Count("imei_no"))
-            .filter(count__gt=1)
-        )
+        # Get all IMEI records
+        all_imeis = IMEINO.objects.all()
 
-        total_duplicates = duplicate_imeis.count()
+        # Group by normalized IMEI (stripped)
+        imei_groups = {}
+        for record in all_imeis:
+            normalized_imei = record.imei_no.strip()
+            if normalized_imei not in imei_groups:
+                imei_groups[normalized_imei] = []
+            imei_groups[normalized_imei].append(record)
+
+        # Find groups with duplicates
+        duplicate_groups = {k: v for k, v in imei_groups.items() if len(v) > 1}
+
+        total_duplicates = len(duplicate_groups)
         deleted_count = 0
 
         self.stdout.write(f"Found {total_duplicates} IMEI numbers with duplicates\n")
 
-        for item in duplicate_imeis:
-            imei_no = item["imei_no"]
-            count = item["count"]
+        for normalized_imei, records in duplicate_groups.items():
+            count = len(records)
 
-            # Get all records with this IMEI number
-            records = IMEINO.objects.filter(imei_no=imei_no)
+            self.stdout.write(
+                self.style.NOTICE(
+                    f"\nProcessing IMEI '{normalized_imei}' ({count} duplicates)"
+                )
+            )
 
             # Find records where phone_model contains 'vivo' (case-insensitive)
-            vivo_records = records.filter(phone_model__icontains="vivo")
+            vivo_records = [r for r in records if "vivo" in r.phone_model.lower()]
 
-            if vivo_records.exists():
+            if vivo_records:
                 # Delete all but one vivo record (keep the first one)
                 records_to_delete = vivo_records[1:]
 
@@ -48,19 +56,27 @@ class Command(BaseCommand):
                         if dry_run:
                             self.stdout.write(
                                 self.style.WARNING(
-                                    f"[DRY RUN] Would delete: IMEI={record.imei_no}, "
-                                    f"Model={record.phone_model}, ID={record.id}"
+                                    f"  [DRY RUN] Would delete: IMEI='{record.imei_no}', "
+                                    f"Model={record.phone_model}, ID={record.id}, Used={record.used}"
                                 )
                             )
                         else:
                             self.stdout.write(
                                 self.style.SUCCESS(
-                                    f"Deleting: IMEI={record.imei_no}, "
-                                    f"Model={record.phone_model}, ID={record.id}"
+                                    f"  Deleting: IMEI='{record.imei_no}', "
+                                    f"Model={record.phone_model}, ID={record.id}, Used={record.used}"
                                 )
                             )
                             record.delete()
                             deleted_count += 1
+                else:
+                    self.stdout.write(
+                        self.style.NOTICE("  Only 1 vivo record found, keeping it")
+                    )
+            else:
+                self.stdout.write(
+                    self.style.NOTICE("  No vivo records found in this duplicate group")
+                )
 
         if dry_run:
             self.stdout.write(
