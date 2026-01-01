@@ -99,27 +99,17 @@ WSGI_APPLICATION = "lucky_draw.wsgi.application"
     }
 } """
 
-""" DATABASES = {
+DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql_psycopg2",
-        "NAME": "lucky_draw",
-        "USER": "ratish",
-        "PASSWORD": "ratish123",
+        "NAME": "vivo",
+        "USER": "vishal",
+        "PASSWORD": "VivoAdmin",
         "HOST": "localhost",
         "PORT": "",
     }
-} """
-# coolify database
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": "postgres",
-        "USER": "postgres",
-        "PASSWORD": "oxIIWGuakQB7fEGNBuPx7ei9oYv3jalotk2dGmN4ZxwgrghlqGtNsBveiNnjFeKH",
-        "HOST": "ww4gk4koccgko8kwg48ck8ck",
-        "PORT": "5432",
-    }
 }
+
 
 DATA_UPLOAD_MAX_MEMORY_SIZE = None
 
