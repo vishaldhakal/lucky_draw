@@ -146,12 +146,14 @@ CORS_ORIGIN_ALLOW_ALL = True
 CORS_ALLOWED_ORIGINS = [
     "https://trimurtibe.baliyotech.com",
     "https://shipping-vitamin-chocolate-avon.trycloudflare.com",
+    "https://lucky-draw-revamped-three.vercel.app",
 ]
 CSRF_TRUSTED_ORIGINS = [
     "https://trimurtibe.baliyotech.com",
     "https://www.admin.vivooffers.com",
     "https://admin.vivooffers.com",
     "https://shipping-vitamin-chocolate-avon.trycloudflare.com",
+    "https://lucky-draw-revamped-three.vercel.app",
 ]
 
 # Default primary key field type

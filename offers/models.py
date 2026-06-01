@@ -1,15 +1,16 @@
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
-from account.models import Organization
-from django.core.validators import MinValueValidator, MaxValueValidator
 from django.utils import timezone
+
+from account.models import Organization
 
 
 class Sales(models.Model):
     sales_count = models.IntegerField(default=0)
-    date = models.DateField(
-        auto_now=False, auto_created=False, auto_now_add=False)
+    date = models.DateField(auto_now=False, auto_created=False, auto_now_add=False)
     lucky_draw_system = models.ForeignKey(
-        'LuckyDrawSystem', on_delete=models.CASCADE, related_name='sales')
+        "LuckyDrawSystem", on_delete=models.CASCADE, related_name="sales"
+    )
 
     def __str__(self):
         return str(self.sales_count)
@@ -17,29 +18,28 @@ class Sales(models.Model):
 
 class LuckyDrawSystem(models.Model):
     LUCKY_DRAW_TYPE_CHOICES = [
-        ('Mobile Phone Brand', 'Mobile Phone Brand'),
-        ('Electronics Shop', 'Electronics Shop'),
-        ('Other Shop', 'Other Shop'),
+        ("Mobile Phone Brand", "Mobile Phone Brand"),
+        ("Electronics Shop", "Electronics Shop"),
+        ("Other Shop", "Other Shop"),
     ]
 
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE)
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True)
-    background_image = models.FileField(
-        upload_to='lucky_draws/', blank=True, null=True)
-    hero_image = models.FileField(
-        upload_to='lucky_draws/', blank=True, null=True)
+    background_image = models.FileField(upload_to="lucky_draws/", blank=True, null=True)
+    hero_image = models.FileField(upload_to="lucky_draws/", blank=True, null=True)
     main_offer_stamp_image = models.FileField(
-        upload_to='lucky_draws/', blank=True, null=True)
-    hero_title = models.CharField(max_length=255, default='')
-    hero_subtitle = models.CharField(max_length=255, default='')
-    qr = models.FileField(upload_to='lucky_draws/', blank=True, null=True)
+        upload_to="lucky_draws/", blank=True, null=True
+    )
+    hero_title = models.CharField(max_length=255, default="")
+    hero_subtitle = models.CharField(max_length=255, default="")
+    qr = models.FileField(upload_to="lucky_draws/", blank=True, null=True)
     type = models.CharField(max_length=20, choices=LUCKY_DRAW_TYPE_CHOICES)
     created_at = models.DateField(auto_now_add=True)
     updated_at = models.DateField(auto_now=True)
     start_date = models.DateField()
     end_date = models.DateField()
-    uuid_key = models.CharField(max_length=255, unique=True, default='')
+    uuid_key = models.CharField(max_length=255, unique=True, default="")
     how_to_participate = models.TextField(blank=True)
     redeem_condition = models.TextField(blank=True)
     terms_and_conditions = models.TextField(blank=True)
@@ -50,17 +50,23 @@ class LuckyDrawSystem(models.Model):
 
 class GiftItem(models.Model):
     GIFT_CATEGORY_CHOICES = [
-        ('minor', 'Minor Gift'),
-        ('major', 'Major Gift'),
-        ('grand', 'Grand Gift'),
+        ("minor", "Minor Gift"),
+        ("major", "Major Gift"),
+        ("grand", "Grand Gift"),
     ]
 
     lucky_draw_system = models.ForeignKey(
-        LuckyDrawSystem, on_delete=models.CASCADE, related_name='gift_items')
+        LuckyDrawSystem, on_delete=models.CASCADE, related_name="gift_items"
+    )
     name = models.CharField(max_length=255)
-    image = models.FileField(upload_to='gift_items/', blank=True, null=True)
+    image = models.FileField(upload_to="gift_items/", blank=True, null=True)
     category = models.CharField(
-        max_length=10, choices=GIFT_CATEGORY_CHOICES, default='minor', null=True, blank=True)
+        max_length=10,
+        choices=GIFT_CATEGORY_CHOICES,
+        default="minor",
+        null=True,
+        blank=True,
+    )
 
     def __str__(self):
         return f"{self.name} - {self.category}-{self.lucky_draw_system.name}"
@@ -75,7 +81,8 @@ class RechargeCard(models.Model):
         ("Others", "Others"),
     ]
     lucky_draw_system = models.ForeignKey(
-        LuckyDrawSystem, on_delete=models.CASCADE, related_name='recharge_cards')
+        LuckyDrawSystem, on_delete=models.CASCADE, related_name="recharge_cards"
+    )
     cardno = models.CharField(max_length=400, unique=True)
     provider = models.CharField(max_length=20, choices=PROVIDER_CHOICES)
     amount = models.IntegerField(choices=AMOUNT_CHOICES)
@@ -87,7 +94,8 @@ class RechargeCard(models.Model):
 
 class IMEINO(models.Model):
     lucky_draw_system = models.ForeignKey(
-        LuckyDrawSystem, on_delete=models.CASCADE, related_name='imei_numbers')
+        LuckyDrawSystem, on_delete=models.CASCADE, related_name="imei_numbers"
+    )
     imei_no = models.CharField(max_length=400, unique=True)
     phone_model = models.CharField(max_length=400, blank=True)
     used = models.BooleanField(default=False)
@@ -98,7 +106,8 @@ class IMEINO(models.Model):
 
 class FixOffer(models.Model):
     lucky_draw_system = models.ForeignKey(
-        LuckyDrawSystem, on_delete=models.CASCADE, related_name='fix_offers')
+        LuckyDrawSystem, on_delete=models.CASCADE, related_name="fix_offers"
+    )
     phone_number = models.CharField(max_length=20, blank=True, null=True)
     imei_no = models.CharField(max_length=400, blank=True, null=True)
     quantity = models.PositiveIntegerField()
@@ -112,11 +121,10 @@ class FixOffer(models.Model):
 class BaseOffer(models.Model):
     OFFER_CHOICES = [
         ("After every certain sale", "After every certain sale"),
-        ("At certain sale position", "At certain sale position")
+        ("At certain sale position", "At certain sale position"),
     ]
 
-    lucky_draw_system = models.ForeignKey(
-        LuckyDrawSystem, on_delete=models.CASCADE)
+    lucky_draw_system = models.ForeignKey(LuckyDrawSystem, on_delete=models.CASCADE)
     start_date = models.DateField()
     end_date = models.DateField()
     start_time = models.TimeField(default="00:00")
@@ -164,10 +172,10 @@ class RechargeCardCondition(models.Model):
 
 
 class RechargeCardOffer(BaseOffer):
-    amount = models.IntegerField(
-        choices=RechargeCard.AMOUNT_CHOICES, default=50)
+    amount = models.IntegerField(choices=RechargeCard.AMOUNT_CHOICES, default=50)
     provider = models.CharField(
-        max_length=20, choices=RechargeCard.PROVIDER_CHOICES, default="Ncell")
+        max_length=20, choices=RechargeCard.PROVIDER_CHOICES, default="Ncell"
+    )
     valid_condition = models.ManyToManyField(RechargeCardCondition, blank=True)
 
     def __str__(self):
@@ -187,8 +195,7 @@ class ElectronicOfferCondition(models.Model):
 
 class ElectronicsShopOffer(BaseOffer):
     gift = models.ManyToManyField(GiftItem, blank=True)
-    valid_condition = models.ManyToManyField(
-        ElectronicOfferCondition, blank=True)
+    valid_condition = models.ManyToManyField(ElectronicOfferCondition, blank=True)
 
     def __str__(self):
         gift_names = ", ".join([g.name for g in self.gift.all()])
@@ -209,7 +216,8 @@ class Customer(models.Model):
     ]
 
     lucky_draw_system = models.ForeignKey(
-        LuckyDrawSystem, on_delete=models.CASCADE, related_name='customers')
+        LuckyDrawSystem, on_delete=models.CASCADE, related_name="customers"
+    )
     customer_name = models.CharField(max_length=400)
     email = models.EmailField(blank=True, null=True)
     shop_name = models.TextField()
@@ -220,18 +228,22 @@ class Customer(models.Model):
     phone_model = models.CharField(max_length=400, blank=True, null=True)
     sale_status = models.CharField(max_length=20, default="SOLD")
     prize_details = models.CharField(max_length=900, default="Thank You")
-    gift = models.ManyToManyField(
-        GiftItem, blank=True)
+    gift = models.ManyToManyField(GiftItem, blank=True)
     imei = models.CharField(max_length=400, blank=True)
     date_of_purchase = models.DateField(auto_now_add=True)
     region = models.CharField(max_length=400, default="None")
-    how_know_about_campaign = models.CharField(
-        max_length=50, choices=CAMPAIGN_CHOICES)
+    how_know_about_campaign = models.CharField(max_length=50, choices=CAMPAIGN_CHOICES)
     recharge_card = models.ForeignKey(
-        RechargeCard, on_delete=models.SET_NULL, null=True, blank=True, related_name="customers")
+        RechargeCard,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="customers",
+    )
     ntc_recharge_card = models.BooleanField(default=False)
     amount_of_card = models.PositiveIntegerField(
-        default=50, validators=[MinValueValidator(50), MaxValueValidator(500)])
+        default=50, validators=[MinValueValidator(50), MaxValueValidator(500)]
+    )
     profession = models.CharField(max_length=400, default="None")
 
     def __str__(self):
