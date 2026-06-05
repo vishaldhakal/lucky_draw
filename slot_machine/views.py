@@ -66,7 +66,20 @@ class SlotMachineListCreateView(generics.ListCreateAPIView):
         self.assign_gift(customer)
 
         serializer = CustomerGiftSerializer(customer)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        data = serializer.data
+        # Build absolute URL for gift image, handling both dict and list serializer outputs
+        gift_data = data.get("gift")
+        if isinstance(gift_data, dict):
+            image = gift_data.get("image")
+            if image:
+                gift_data["image"] = request.build_absolute_uri(image)
+        elif isinstance(gift_data, list) and gift_data:
+            image = (
+                gift_data[0].get("image") if isinstance(gift_data[0], dict) else None
+            )
+            if image:
+                gift_data[0]["image"] = request.build_absolute_uri(image)
+        return Response(data, status=status.HTTP_201_CREATED)
 
     # ---------------- GIFT ASSIGNMENT ---------------- #
     def assign_gift(self, customer):
