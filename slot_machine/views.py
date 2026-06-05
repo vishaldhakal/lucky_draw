@@ -147,9 +147,10 @@ class SlotMachineListCreateView(generics.ListCreateAPIView):
             offers_by_category = {}
             for offer in offers:
                 for gift in offer.gift.all():
-                    offers_by_category.setdefault(gift.category, []).append(
-                        (offer, gift)
-                    )
+                    offers_by_category.setdefault(gift.category, []).append((
+                        offer,
+                        gift,
+                    ))
 
             # Assign best gift per category (lowest assigned ratio)
             for category, gift_options in offers_by_category.items():
@@ -207,9 +208,8 @@ class SlotMachineListCreateView(generics.ListCreateAPIView):
 
         if offer.type_of_offer == "After every certain sale":
             todays_gift_count = (
-                Customer.objects.filter(
-                    date_of_purchase=today_date, gift__in=offer.gift.all()
-                )
+                Customer.objects
+                .filter(date_of_purchase=today_date, gift__in=offer.gift.all())
                 .distinct()
                 .count()
             )

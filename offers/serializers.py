@@ -1,24 +1,37 @@
 from rest_framework import serializers
+
 from .models import (
+    IMEINO,
+    Customer,
+    ElectronicOfferCondition,
+    ElectronicsShopOffer,
+    FixOffer,
     GiftItem,
     LuckyDrawSystem,
-    RechargeCard,
-    IMEINO,
-    FixOffer,
     MobileOfferCondition,
     MobilePhoneOffer,
-    RechargeCardOffer,
-    ElectronicsShopOffer,
-    Customer,
+    RechargeCard,
     RechargeCardCondition,
-    ElectronicOfferCondition,
+    RechargeCardOffer,
 )
 
 
 class GiftItemSerializer(serializers.ModelSerializer):
+    image = serializers.SerializerMethodField()
+
     class Meta:
         model = GiftItem
         fields = "__all__"
+
+    def get_image(self, obj):
+        request = self.context.get("request")
+
+        if obj.image:
+            if request:
+                return request.build_absolute_uri(obj.image.url)
+            return obj.image.url
+
+        return None
 
 
 class GetOrganiazationDetail(serializers.ModelSerializer):
@@ -42,8 +55,8 @@ class LuckyDrawSystemSerializer(serializers.ModelSerializer):
             "type",
             "start_date",
             "end_date",
-            'how_to_participate',
-            'redeem_condition',
+            "how_to_participate",
+            "redeem_condition",
             "terms_and_conditions",
         ]
         read_only_fields = ["created_at", "updated_at"]
@@ -52,8 +65,7 @@ class LuckyDrawSystemSerializer(serializers.ModelSerializer):
 class RechargeCardSerializer(serializers.ModelSerializer):
     class Meta:
         model = RechargeCard
-        fields = ["lucky_draw_system", "cardno",
-                  "provider", "amount", "is_assigned"]
+        fields = ["lucky_draw_system", "cardno", "provider", "amount", "is_assigned"]
 
 
 class IMEINOSerializer(serializers.ModelSerializer):
@@ -63,7 +75,10 @@ class IMEINOSerializer(serializers.ModelSerializer):
 
 
 class FixOfferSerializer(serializers.ModelSerializer):
-    gift = serializers.PrimaryKeyRelatedField(many=True, queryset=GiftItem.objects.all())
+    gift = serializers.PrimaryKeyRelatedField(
+        many=True, queryset=GiftItem.objects.all()
+    )
+
     class Meta:
         model = FixOffer
         fields = ["lucky_draw_system", "imei_no", "quantity", "gift"]
@@ -130,7 +145,6 @@ class CustomerSerializer(serializers.ModelSerializer):
 
 
 class CustomerGiftSerializer(serializers.ModelSerializer):
-
     gift = GiftItemSerializer(many=True)
 
     class Meta:
@@ -148,3 +162,7 @@ class CustomerGiftSerializer(serializers.ModelSerializer):
             "email",
             "date_of_purchase",
         ]
+
+    def to_representation(self, instance):
+        self.fields["gift"].context.update(self.context)
+        return super().to_representation(instance)
