@@ -146,13 +146,14 @@ class SlotMachineListCreateView(generics.ListCreateAPIView):
             offers_by_condition.setdefault(cv, []).append(offer)
 
         assigned_gifts = []
+        assigned_categories = set()  # ← NEW: track categories already assigned
 
         # Step 4: assign gifts for all condition values up to the highest met
         highest_cv_met = max(offers_by_condition.keys())
 
         for cv in sorted(offers_by_condition.keys()):
             if cv > highest_cv_met:
-                continue  # skip condition values above highest met
+                continue
 
             offers = offers_by_condition[cv]
 
@@ -167,6 +168,10 @@ class SlotMachineListCreateView(generics.ListCreateAPIView):
 
             # Assign best gift per category (lowest assigned ratio)
             for category, gift_options in offers_by_category.items():
+                # ← NEW: skip if this category was already assigned
+                if category in assigned_categories:
+                    continue
+
                 best_gift = None
                 lowest_ratio = None
 
@@ -185,6 +190,7 @@ class SlotMachineListCreateView(generics.ListCreateAPIView):
                 if best_gift:
                     customer.gift.add(best_gift)
                     assigned_gifts.append(best_gift)
+                    assigned_categories.add(category)  # ← NEW: mark category as done
 
         # Step 5: save prize details
         if assigned_gifts:
