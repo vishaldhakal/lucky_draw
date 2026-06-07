@@ -45,7 +45,14 @@ class SlotMachineListCreateView(generics.ListCreateAPIView):
         region = request.data.get("region", "None")
         product_purchased = request.data.get("product_purchased")
         bill_number = request.data.get("bill_number")
+        retry = request.data.get("retry")
 
+        if isinstance(retry, str):
+            retry = retry.lower() in ("true", "1")
+        elif not isinstance(retry, bool):
+            retry = False
+
+        # Validate that the Lucky Draw System exists
         try:
             lucky_draw = LuckyDrawSystem.objects.get(id=lucky_draw_system)
         except LuckyDrawSystem.DoesNotExist:
@@ -54,14 +61,48 @@ class SlotMachineListCreateView(generics.ListCreateAPIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        customer = Customer.objects.create(
-            lucky_draw_system=lucky_draw,
-            customer_name=customer_name,
-            phone_number=phone_number,
-            region=region,
-            product_purchased=product_purchased,
-            bill_number=bill_number,
-        )
+        if retry:
+            if not phone_number:
+                return Response(
+                    {"error": "phone_number is required for retry."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            customer = (
+                Customer.objects
+                .filter(phone_number=phone_number, lucky_draw_system=lucky_draw)
+                .order_by("-id")
+                .first()
+            )
+            if not customer:
+                return Response(
+                    {
+                        "error": "Customer not found with this phone number and lucky draw system."
+                    },
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+            # Clear old gifts
+            customer.gift.clear()
+
+            # Update customer details if provided
+            if customer_name:
+                customer.customer_name = customer_name
+            if region and region != "None":
+                customer.region = region
+            if product_purchased:
+                customer.product_purchased = product_purchased
+            if bill_number:
+                customer.bill_number = bill_number
+            customer.save()
+        else:
+            customer = Customer.objects.create(
+                lucky_draw_system=lucky_draw,
+                customer_name=customer_name,
+                phone_number=phone_number,
+                region=region,
+                product_purchased=product_purchased,
+                bill_number=bill_number,
+            )
 
         self.assign_gift(customer)
 
@@ -79,7 +120,9 @@ class SlotMachineListCreateView(generics.ListCreateAPIView):
             )
             if image:
                 gift_data[0]["image"] = request.build_absolute_uri(image)
-        return Response(data, status=status.HTTP_201_CREATED)
+
+        status_code = status.HTTP_200_OK if retry else status.HTTP_201_CREATED
+        return Response(data, status=status_code)
 
     # ---------------- GIFT ASSIGNMENT ---------------- #
     def assign_gift(self, customer):
