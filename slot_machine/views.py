@@ -126,8 +126,6 @@ class SlotMachineListCreateView(generics.ListCreateAPIView):
 
     # ---------------- GIFT ASSIGNMENT ---------------- #
     def assign_gift(self, customer):
-        import random  # Natively imported for controlled tie-breaking
-
         today_date = timezone.now().date()
         lucky_draw_system = customer.lucky_draw_system
 
@@ -191,7 +189,7 @@ class SlotMachineListCreateView(generics.ListCreateAPIView):
             offers_by_condition.setdefault(cv, []).append(offer)
 
         assigned_gifts = []
-        assigned_categories = set()
+        assigned_categories = set()  # ← NEW: track categories already assigned
 
         # Step 4: assign gifts for all condition values up to the highest met
         highest_cv_met = max(offers_by_condition.keys())
@@ -211,47 +209,31 @@ class SlotMachineListCreateView(generics.ListCreateAPIView):
                         gift,
                     ))
 
-            # Assign best gift per category (Fixed Two-Pass Ratio Balancing)
+            # Assign best gift per category (lowest assigned ratio)
             for category, gift_options in offers_by_category.items():
+                # ← NEW: skip if this category was already assigned
                 if category in assigned_categories:
                     continue
 
-                # Pass 1: Calculate metrics and collect valid candidates that haven't hit caps
-                valid_options = []
+                best_gift = None
+                lowest_ratio = None
+
                 for offer, gift in gift_options:
                     already_assigned = Customer.objects.filter(
                         date_of_purchase=today_date, gift=gift
                     ).count()
 
-                    target_capacity = max(offer.daily_quantity, 1)
+                    total_quantity = max(offer.daily_quantity, 1)
+                    assigned_ratio = already_assigned / total_quantity
 
-                    # Hard cutoff check
-                    if already_assigned >= target_capacity:
-                        continue
+                    if lowest_ratio is None or assigned_ratio < lowest_ratio:
+                        lowest_ratio = assigned_ratio
+                        best_gift = gift
 
-                    assigned_ratio = already_assigned / target_capacity
-                    valid_options.append((gift, assigned_ratio))
-
-                if not valid_options:
-                    continue
-
-                # Pass 2: Identify absolute lowest ratio baseline
-                true_lowest_ratio = min(item[1] for item in valid_options)
-
-                # Pass 3: Isolate options sitting cleanly within the 0.01 tolerance window
-                tolerance = 0.01
-                best_candidates = [
-                    gift
-                    for gift, ratio in valid_options
-                    if ratio <= (true_lowest_ratio + tolerance)
-                ]
-
-                # Pass 4: Pick a randomized selection among verified trailing candidates
-                if best_candidates:
-                    best_gift = random.choice(best_candidates)
+                if best_gift:
                     customer.gift.add(best_gift)
                     assigned_gifts.append(best_gift)
-                    assigned_categories.add(category)
+                    assigned_categories.add(category)  # ← NEW: mark category as done
 
         # Step 5: save prize details
         if assigned_gifts:
@@ -263,6 +245,7 @@ class SlotMachineListCreateView(generics.ListCreateAPIView):
         customer.save()
 
     # ---------------- OFFER CHECKING ---------------- #
+
     def check_offer_condition(self, offer, sales_count, region="None"):
         today_date = timezone.now().date()
         today_time = timezone.now().time()
