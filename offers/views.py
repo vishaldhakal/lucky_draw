@@ -903,31 +903,24 @@ class CustomerListCreateView(generics.ListCreateAPIView):
         return Response(data, status=status.HTTP_201_CREATED)
 
     def assign_gift(self, customer):
+        import random  # Natively imported for controlled tie-breaking
+
         today_date = timezone.now().date()
         lucky_draw_system = customer.lucky_draw_system
 
-        sales_today, created = Sales.objects.get_or_create(
+        # Update daily sales count
+        sales_today, _ = Sales.objects.get_or_create(
             date=today_date,
             lucky_draw_system=lucky_draw_system,
             defaults={"sales_count": 0},
         )
-
-        """ if not Sales.objects.filter(date=today_date, lucky_draw_system=lucky_draw_system).exists():
-            sales_today = Sales.objects.create(
-                date=today_date,
-                lucky_draw_system=lucky_draw_system,
-                sales_count=0
-            )
-        else:
-            sales_today = Sales.objects.get(date=today_date, lucky_draw_system=lucky_draw_system,sales_count=0) """
-
         sales_today.sales_count += 1
         sales_today.save()
-
         sales_count = sales_today.sales_count
+
         phone_model = customer.phone_model
 
-        # Fixed Offers
+        # ------------------ FIXED OFFERS ------------------ #
         fixed_offer = FixOffer.objects.filter(
             lucky_draw_system=lucky_draw_system, imei_no=customer.imei, quantity__gt=0
         ).first()
@@ -944,34 +937,15 @@ class CustomerListCreateView(generics.ListCreateAPIView):
                 fixed_offer.save()
                 return
 
+        # ------------------ PROCESSING OFFERS ------------------ #
+        # Gather available offers from both MobilePhoneOffer and ElectronicsShopOffer models
         mobile_offers = MobilePhoneOffer.objects.filter(
             lucky_draw_system=lucky_draw_system,
             start_date__lte=today_date,
             end_date__gte=today_date,
             daily_quantity__gt=0,
-        ).order_by("priority")
+        )
 
-        for offer in mobile_offers:
-            if customer.region != "None":
-                condition_met = self.check_offer_condition(
-                    offer, sales_count, customer.region
-                )
-            else:
-                condition_met = self.check_offer_condition(offer, sales_count, "Other")
-            validto_check = self.check_validto_condition(offer, phone_model)
-
-            if condition_met and validto_check:
-                # Customer.gift is ManyToMany; assign single FK gift
-                customer.gift.set([offer.gift])
-                customer.prize_details = (
-                    f"Congratulations! You've won {offer.gift.name}"
-                )
-
-                customer.save()
-                offer.save()
-                return
-
-        # Check Electronic Shop Offers
         electronic_offers = ElectronicsShopOffer.objects.filter(
             lucky_draw_system=lucky_draw_system,
             start_date__lte=today_date,
@@ -979,33 +953,106 @@ class CustomerListCreateView(generics.ListCreateAPIView):
             daily_quantity__gt=0,
         )
 
+        region_str = (
+            customer.region
+            if (customer.region and customer.region != "None")
+            else "Other"
+        )
+
+        # Step 1: Collect matching campaign items and map structural gift layers safely
+        matching_offers = []
+
+        for offer in mobile_offers:
+            if self.check_offer_condition(
+                offer, sales_count, region_str
+            ) and self.check_validto_condition(offer, phone_model):
+                matching_offers.append(offer)
+
         for offer in electronic_offers:
-            condition_met = self.check_offer_condition(offer, sales_count)
-            validto_check = self.check_validto_condition(offer, phone_model)
+            if self.check_offer_condition(
+                offer, sales_count, region_str
+            ) and self.check_validto_condition(offer, phone_model):
+                matching_offers.append(offer)
 
-            if condition_met and validto_check:
-                # ElectronicsShopOffer.gift is a ManyToMany; pick a single gift to assign
-                selected_gift = None
-                try:
-                    # If M2M manager
-                    selected_gift = offer.gift.first()
-                except Exception:
-                    # If it's already a FK, use as is
-                    selected_gift = getattr(offer, "gift", None)
+        # Step 2: Core Ratio Assignment Engine
+        if matching_offers:
+            # Group into standard condition blocks matching structural constraints
+            offers_by_condition = {}
+            for offer in matching_offers:
+                cv = int(offer.offer_condition_value)
+                offers_by_condition.setdefault(cv, []).append(offer)
 
-                if not selected_gift:
-                    # No gift available to assign; skip to next offer
+            assigned_gifts = []
+            assigned_categories = set()
+            highest_cv_met = max(offers_by_condition.keys())
+
+            for cv in sorted(offers_by_condition.keys()):
+                if cv > highest_cv_met:
                     continue
 
-                # Customer.gift is ManyToMany; assign the selected gift
-                customer.gift.set([selected_gift])
-                customer.prize_details = f"Congratulations! You've won {selected_gift.name} from our Electronics Shop Offer!"
-                customer.save()
+                offers = offers_by_condition[cv]
+                offers_by_category = {}
 
-                offer.save()
+                # Map individual gifts inside valid categories securely
+                for offer in offers:
+                    # Abstract field variance between ForeignKey and ManyToMany managers safely
+                    if hasattr(offer.gift, "all"):
+                        gifts = offer.gift.all()
+                    else:
+                        gifts = [offer.gift] if getattr(offer, "gift", None) else []
+
+                    for gift in gifts:
+                        if gift:
+                            offers_by_category.setdefault(gift.category, []).append((
+                                offer,
+                                gift,
+                            ))
+
+                # Process categories using our fixed Two-Pass mathematical balance matrix
+                for category, gift_options in offers_by_category.items():
+                    if category in assigned_categories:
+                        continue
+
+                    valid_options = []
+                    for offer, gift in gift_options:
+                        already_assigned = Customer.objects.filter(
+                            date_of_purchase=today_date, gift=gift
+                        ).count()
+
+                        target_capacity = max(offer.daily_quantity, 1)
+
+                        if already_assigned >= target_capacity:
+                            continue
+
+                        assigned_ratio = already_assigned / target_capacity
+                        valid_options.append((gift, assigned_ratio))
+
+                    if not valid_options:
+                        continue
+
+                    # Pinpoint true mathematical layout minimum trailing options
+                    true_lowest_ratio = min(item[1] for item in valid_options)
+                    tolerance = 0.01
+
+                    best_candidates = [
+                        gift
+                        for gift, ratio in valid_options
+                        if ratio <= (true_lowest_ratio + tolerance)
+                    ]
+
+                    if best_candidates:
+                        best_gift = random.choice(best_candidates)
+                        customer.gift.add(best_gift)
+                        assigned_gifts.append(best_gift)
+                        assigned_categories.add(category)
+
+            if assigned_gifts:
+                gift_names = ", ".join([gift.name for gift in assigned_gifts])
+                customer.prize_details = f"Congratulations! You've won {gift_names}"
+                customer.save()
                 return
 
-        # If no gift assigned, search for "better luck next time" gift
+        # ------------------ FALLBACK OVERFLOWS ------------------ #
         better_luck_gift = GiftItem.objects.filter(
             lucky_draw_system=lucky_draw_system, name__icontains="better luck next time"
         ).first()
@@ -1018,44 +1065,41 @@ class CustomerListCreateView(generics.ListCreateAPIView):
 
         customer.save()
 
+    # ---------------- OFFER CHECKING HELPERS ---------------- #
     def check_offer_condition(self, offer, sales_count, region):
         today_date = timezone.now().date()
         today_time = timezone.now().time()
 
-        # Handle both FK and M2M gift relationships gracefully
-        selected_gift = None
-        try:
-            # If gift is a ManyToMany manager
-            if hasattr(offer, "gift") and hasattr(offer.gift, "all"):
-                selected_gift = offer.gift.first()
-            else:
-                selected_gift = getattr(offer, "gift", None)
-        except Exception:
+        if hasattr(offer, "gift") and hasattr(offer.gift, "all"):
+            selected_gift = offer.gift.first()
+        else:
             selected_gift = getattr(offer, "gift", None)
 
         if offer.has_region_limit:
             if region == "None" or region == "Other":
                 return False
-
             if not selected_gift:
-                # If we cannot determine a concrete gift, conservatively disallow the region-limited offer
                 return False
 
             region_counts = {
                 "Centeral Region": Customer.objects.filter(
-                    region="Centeral Region", gift=selected_gift
+                    region="Centeral Region",
+                    gift=selected_gift,
+                    date_of_purchase=today_date,
                 ).count(),
                 "Eastern Region": Customer.objects.filter(
-                    region="Eastern Region", gift=selected_gift
+                    region="Eastern Region",
+                    gift=selected_gift,
+                    date_of_purchase=today_date,
                 ).count(),
                 "Western Region": Customer.objects.filter(
-                    region="Western Region", gift=selected_gift
+                    region="Western Region",
+                    gift=selected_gift,
+                    date_of_purchase=today_date,
                 ).count(),
             }
-
             min_count = min(region_counts.values())
-
-            if region_counts[region] > min_count:
+            if region_counts.get(region, 0) > min_count:
                 return False
 
         if offer.has_time_limit:
@@ -1072,28 +1116,21 @@ class CustomerListCreateView(generics.ListCreateAPIView):
                 sales_count % int(offer.offer_condition_value) == 0
                 and todayscount < offer.daily_quantity
             )
+
         elif offer.type_of_offer == "At certain sale position":
             return str(sales_count) in offer.sale_numbers
-        return (
-            False  # If the offer type doesn't match any condition, it's not applicable
-        )
+
+        return False
 
     def check_validto_condition(self, offer, phone_model):
+        if not phone_model:
+            return False
         if not offer.valid_condition.exists():
-            return True  # If there are no valid conditions, the offer is applicable to all devices
-
+            return True
         for condition in offer.valid_condition.all():
             if phone_model.startswith(condition.condition):
                 return True
-
-        return False  # If there are valid conditions but no match, the offer is not valid for this phone model
-
-        # if hasattr(offer, "valid_condition"):
-        #     conditions = offer.valid_condition.all()
-        #     return not conditions or any(
-        #         phone_model.startswith(cond.condition) for cond in conditions
-        #     )
-        # return True  # If there's no valid_condition, assume it's valid for all
+        return False
 
 
 @api_view(["GET"])
@@ -1144,7 +1181,8 @@ def gift_count_last_100(request):
 
     # Get last 100 customers (orders) for the lucky draw system
     last_ids = list(
-        Customer.objects.filter(lucky_draw_system=lds)
+        Customer.objects
+        .filter(lucky_draw_system=lds)
         .order_by("-id")
         .values_list("id", flat=True)[:100]
     )
@@ -1152,7 +1190,8 @@ def gift_count_last_100(request):
     # Aggregate counts of gifts from those customers via the M2M relation
     # Exclude customers without any assigned gift
     gift_counts = (
-        Customer.objects.filter(id__in=last_ids, gift__isnull=False)
+        Customer.objects
+        .filter(id__in=last_ids, gift__isnull=False)
         .values("gift__id", "gift__name")
         .annotate(count=Count("gift"))
         .order_by("-count", "gift__name")
@@ -1167,12 +1206,10 @@ def gift_count_last_100(request):
         for row in gift_counts
     ]
 
-    return Response(
-        {
-            "results": results,
-            "total_customers_considered": len(last_ids),
-        }
-    )
+    return Response({
+        "results": results,
+        "total_customers_considered": len(last_ids),
+    })
 
 
 @api_view(["POST"])
@@ -1261,45 +1298,41 @@ def download_customers_detail(request):
 
         # Create a CSV writer and write the header row
         writer = csv.writer(response)
-        writer.writerow(
-            [
-                "Customer Name",
-                "Shop Name",
-                "Sold Area",
-                "Region",
-                "Phone Number",
-                "Phone Model",
-                "Sale Status",
-                "Prize Details",
-                "IMEI",
-                "Gift",
-                "Date of Purchase",
-                "How Know About Campaign",
-                "Profession",
-            ]
-        )
+        writer.writerow([
+            "Customer Name",
+            "Shop Name",
+            "Sold Area",
+            "Region",
+            "Phone Number",
+            "Phone Model",
+            "Sale Status",
+            "Prize Details",
+            "IMEI",
+            "Gift",
+            "Date of Purchase",
+            "How Know About Campaign",
+            "Profession",
+        ])
 
         # Write the data rows
         for customer in queryset:
-            writer.writerow(
-                [
-                    customer.customer_name,
-                    customer.shop_name,
-                    customer.sold_area,
-                    customer.region,
-                    customer.phone_number,
-                    customer.phone_model,
-                    customer.sale_status,
-                    customer.prize_details,
-                    customer.imei,
-                    ", ".join([gift.name for gift in customer.gift.all()])
-                    if customer.gift.exists()
-                    else "",
-                    customer.date_of_purchase,
-                    customer.how_know_about_campaign,
-                    customer.profession,
-                ]
-            )
+            writer.writerow([
+                customer.customer_name,
+                customer.shop_name,
+                customer.sold_area,
+                customer.region,
+                customer.phone_number,
+                customer.phone_model,
+                customer.sale_status,
+                customer.prize_details,
+                customer.imei,
+                ", ".join([gift.name for gift in customer.gift.all()])
+                if customer.gift.exists()
+                else "",
+                customer.date_of_purchase,
+                customer.how_know_about_campaign,
+                customer.profession,
+            ])
 
         return response
 
@@ -1311,47 +1344,43 @@ def export_data(request, pk):
     luckydraw = LuckyDrawSystem.objects.get(id=pk)
     cust = Customer.objects.filter(lucky_draw_system=luckydraw)
 
-    writer.writerow(
-        [
-            "Customer Name",
-            "Shop Name",
-            "Sold Area",
-            "Phone Number",
-            "Email",
-            "Phone Model",
-            "IMEI",
-            "How Know About Campaign",
-            "Profession",
-            "Region",
-            "Gift",
-            "Date of Purchase",
-            "Prize Details",
-            "Recharge Card",
-            "NTC Recharge Card",
-            "Amount of Ntc Card",
-        ]
-    )
+    writer.writerow([
+        "Customer Name",
+        "Shop Name",
+        "Sold Area",
+        "Phone Number",
+        "Email",
+        "Phone Model",
+        "IMEI",
+        "How Know About Campaign",
+        "Profession",
+        "Region",
+        "Gift",
+        "Date of Purchase",
+        "Prize Details",
+        "Recharge Card",
+        "NTC Recharge Card",
+        "Amount of Ntc Card",
+    ])
     for customer in cust:
-        writer.writerow(
-            [
-                customer.customer_name,
-                customer.shop_name,
-                customer.sold_area,
-                customer.phone_number,
-                customer.email,
-                customer.phone_model,
-                customer.imei,
-                customer.how_know_about_campaign,
-                customer.profession,
-                customer.region,
-                ", ".join([gift.name for gift in customer.gift.all()])
-                if customer.gift.exists()
-                else "",
-                customer.date_of_purchase,
-                customer.prize_details,
-                customer.recharge_card,
-                customer.ntc_recharge_card,
-                customer.amount_of_card,
-            ]
-        )
+        writer.writerow([
+            customer.customer_name,
+            customer.shop_name,
+            customer.sold_area,
+            customer.phone_number,
+            customer.email,
+            customer.phone_model,
+            customer.imei,
+            customer.how_know_about_campaign,
+            customer.profession,
+            customer.region,
+            ", ".join([gift.name for gift in customer.gift.all()])
+            if customer.gift.exists()
+            else "",
+            customer.date_of_purchase,
+            customer.prize_details,
+            customer.recharge_card,
+            customer.ntc_recharge_card,
+            customer.amount_of_card,
+        ])
     return response
