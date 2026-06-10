@@ -211,46 +211,44 @@ class SlotMachineListCreateView(generics.ListCreateAPIView):
                         gift,
                     ))
 
-            # Assign best gift per category (Target Ratio Balancing)
+            # Assign best gift per category (Fixed Two-Pass Ratio Balancing)
             for category, gift_options in offers_by_category.items():
                 if category in assigned_categories:
                     continue
 
-                # Shuffle list first so true mathematical ties are randomized
-                random.shuffle(gift_options)
-
-                best_gift = None
-                lowest_ratio = None
-                tolerance = 0.01  # Allows close ratio variations to compete randomly
-
+                # Pass 1: Calculate metrics and collect valid candidates that haven't hit caps
+                valid_options = []
                 for offer, gift in gift_options:
                     already_assigned = Customer.objects.filter(
                         date_of_purchase=today_date, gift=gift
                     ).count()
 
-                    # FIX: Use the specific row's daily_quantity as its exact mathematical target capacity
                     target_capacity = max(offer.daily_quantity, 1)
 
-                    # If this specific gift row has already hit its individual target budget today, skip it
+                    # Hard cutoff check
                     if already_assigned >= target_capacity:
                         continue
 
                     assigned_ratio = already_assigned / target_capacity
+                    valid_options.append((gift, assigned_ratio))
 
-                    # Select the gift furthest away from its target proportion
-                    if lowest_ratio is None or assigned_ratio < (
-                        lowest_ratio - tolerance
-                    ):
-                        lowest_ratio = assigned_ratio
-                        best_gift = gift
-                    elif (
-                        lowest_ratio is not None
-                        and abs(assigned_ratio - lowest_ratio) <= tolerance
-                    ):
-                        if random.choice([True, False]):
-                            best_gift = gift
+                if not valid_options:
+                    continue
 
-                if best_gift:
+                # Pass 2: Identify absolute lowest ratio baseline
+                true_lowest_ratio = min(item[1] for item in valid_options)
+
+                # Pass 3: Isolate options sitting cleanly within the 0.01 tolerance window
+                tolerance = 0.01
+                best_candidates = [
+                    gift
+                    for gift, ratio in valid_options
+                    if ratio <= (true_lowest_ratio + tolerance)
+                ]
+
+                # Pass 4: Pick a randomized selection among verified trailing candidates
+                if best_candidates:
+                    best_gift = random.choice(best_candidates)
                     customer.gift.add(best_gift)
                     assigned_gifts.append(best_gift)
                     assigned_categories.add(category)
