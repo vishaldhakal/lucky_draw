@@ -87,7 +87,7 @@ WSGI_APPLICATION = "lucky_draw.wsgi.application"
     }
 } """
 
-DATABASES = {
+"""DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
         "NAME": "postgres",
@@ -95,6 +95,16 @@ DATABASES = {
         "PASSWORD": "whHrXAX6WE3bw9uWOFxF4naxGtjBhZT2mXkXRpeaOhWQIALgC7RWjbVqiDaD7wFL",
         "HOST": "tgkok4k80o0owcgoo0ccgsoc",
         "PORT": "5432",
+    }
+}"""
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.postgresql_psycopg2",
+        "NAME": "luckydraw",
+        "USER": "ratish",
+        "PASSWORD": "ratish123",
+        "HOST": "localhost",
+        "PORT": "",
     }
 }
 DATA_UPLOAD_MAX_MEMORY_SIZE = None
