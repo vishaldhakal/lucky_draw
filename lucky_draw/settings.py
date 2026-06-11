@@ -87,7 +87,7 @@ WSGI_APPLICATION = "lucky_draw.wsgi.application"
     }
 } """
 
-"""DATABASES = {
+DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
         "NAME": "postgres",
@@ -96,8 +96,8 @@ WSGI_APPLICATION = "lucky_draw.wsgi.application"
         "HOST": "tgkok4k80o0owcgoo0ccgsoc",
         "PORT": "5432",
     }
-}"""
-DATABASES = {
+}
+"""DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql_psycopg2",
         "NAME": "luckydraw",
@@ -106,7 +106,7 @@ DATABASES = {
         "HOST": "localhost",
         "PORT": "",
     }
-}
+}"""
 DATA_UPLOAD_MAX_MEMORY_SIZE = None
 
 # Password validation
