@@ -50,7 +50,7 @@ class Command(BaseCommand):
                     )
                 else:
                     self.stdout.write(
-                        self.style.DANGER(
+                        self.style.ERROR(
                             f"DELETING quoted duplicate record ID {record.id}: '{original_imei}'"
                         )
                     )
