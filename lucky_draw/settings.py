@@ -97,16 +97,7 @@ DATABASES = {
         "PORT": "5432",
     }
 }
-"""DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql_psycopg2",
-        "NAME": "luckydraw",
-        "USER": "ratish",
-        "PASSWORD": "ratish123",
-        "HOST": "localhost",
-        "PORT": "",
-    }
-}"""
+
 DATA_UPLOAD_MAX_MEMORY_SIZE = None
 
 # Password validation
@@ -155,14 +146,14 @@ CORS_ORIGIN_ALLOW_ALL = True
 
 CORS_ALLOWED_ORIGINS = [
     "https://trimurtibe.baliyotech.com",
-    "https://shipping-vitamin-chocolate-avon.trycloudflare.com",
+    "https://presentation-prevention-favourite-school.trycloudflare.com",
     "https://lucky-draw-revamped-three.vercel.app",
 ]
 CSRF_TRUSTED_ORIGINS = [
     "https://trimurtibe.baliyotech.com",
     "https://www.admin.vivooffers.com",
     "https://admin.vivooffers.com",
-    "https://shipping-vitamin-chocolate-avon.trycloudflare.com",
+    "https://presentation-prevention-favourite-school.trycloudflare.com",
     "https://lucky-draw-revamped-three.vercel.app",
 ]
 

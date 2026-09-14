@@ -860,13 +860,31 @@ class CustomerListCreateView(generics.ListCreateAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        if not lucky_draw_system:
+            return Response(
+                {"error": "Lucky draw system is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            lucky_draw = LuckyDrawSystem.objects.get(id=lucky_draw_system)
+        except (LuckyDrawSystem.DoesNotExist, ValueError):
+            return Response(
+                {"error": "Invalid Lucky Draw System."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if lucky_draw.end_date < timezone.now().date():
+            return Response(
+                {"error": "Lucky draw campaign has expired."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         how_know_about_campaign = request.data.get("how_know_about_campaign")
         profession = request.data.get("profession")
 
         imei_obj.used = True
         imei_obj.save()
-
-        lucky_draw = LuckyDrawSystem.objects.get(id=lucky_draw_system)
 
         customer = Customer.objects.create(
             lucky_draw_system=lucky_draw,
@@ -1136,13 +1154,16 @@ class CustomerListCreateView(generics.ListCreateAPIView):
 @api_view(["GET"])
 def GetGiftList(request):
     lucky_draw_system_id = request.GET["lucky_draw_system_id"]
+    category = request.GET.get("category")
     lucky_draw_system = LuckyDrawSystem.objects.get(id=lucky_draw_system_id)
     gifts = GiftItem.objects.filter(lucky_draw_system=lucky_draw_system)
+    if category:
+        gifts = gifts.filter(category=category)
     serializer = GiftItemSerializer(gifts, many=True)
     data = serializer.data
-    # data["image"] = request.build_absolute_uri(data["image"])
     for gift in data:
-        gift["image"] = request.build_absolute_uri(gift["image"])
+        if gift.get("image"):
+            gift["image"] = request.build_absolute_uri(gift["image"])
     return Response(data)
 
 
