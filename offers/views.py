@@ -1250,21 +1250,41 @@ def gift_count_last_100(request):
 @api_view(["POST"])
 def UploadImeiBulk(request):
     if request.method == "POST":
-        file = request.FILES["file"]
+        file = request.FILES.get("file")
+        if not file:
+            return Response(
+                {"error": "CSV file is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         lucky_draw_system_id = request.data.get("lucky_draw_system")
-        lucky_draw_system = LuckyDrawSystem.objects.get(id=lucky_draw_system_id)
+        try:
+            lucky_draw_system = LuckyDrawSystem.objects.get(id=lucky_draw_system_id)
+        except (LuckyDrawSystem.DoesNotExist, ValueError):
+            return Response(
+                {"error": "Invalid Lucky Draw System."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         if file.name.endswith(".csv"):
             data_set = file.read().decode("UTF-8")
             io_string = io.StringIO(data_set)
-            next(io_string)
+            next(io_string, None)  # Skip header row safely
+
             for column in csv.reader(io_string, delimiter=",", quotechar="|"):
-                if not IMEINO.objects.filter(imei_no=column[0]).exists():
+                if not column or not column[0].strip():
+                    continue
+
+                imei_no = column[0].strip()
+                phone_model = column[1].strip() if len(column) > 1 else ""
+
+                if not IMEINO.objects.filter(imei_no=imei_no).exists():
                     imei = IMEINO()
-                    imei.imei_no = column[0]
+                    imei.imei_no = imei_no
                     imei.lucky_draw_system = lucky_draw_system
-                    imei.phone_model = column[1]
+                    imei.phone_model = phone_model
                     imei.save()
+
             return Response(
                 {"message": "IMEI numbers uploaded successfully"},
                 status=status.HTTP_201_CREATED,
