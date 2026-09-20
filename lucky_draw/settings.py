@@ -146,14 +146,14 @@ CORS_ORIGIN_ALLOW_ALL = True
 
 CORS_ALLOWED_ORIGINS = [
     "https://trimurtibe.baliyotech.com",
-    "https://presentation-prevention-favourite-school.trycloudflare.com",
+    "https://von-workout-faster-implementation.trycloudflare.com",
     "https://lucky-draw-revamped-three.vercel.app",
 ]
 CSRF_TRUSTED_ORIGINS = [
     "https://trimurtibe.baliyotech.com",
     "https://www.admin.vivooffers.com",
     "https://admin.vivooffers.com",
-    "https://presentation-prevention-favourite-school.trycloudflare.com",
+    "https://von-workout-faster-implementation.trycloudflare.com",
     "https://lucky-draw-revamped-three.vercel.app",
 ]
 

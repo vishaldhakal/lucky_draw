@@ -842,7 +842,7 @@ class CustomerListCreateView(generics.ListCreateAPIView):
             return Response(
                 {"error": "IMEI is required."}, status=status.HTTP_400_BAD_REQUEST
             )
-        print(imei)
+
         try:
             imei_obj = IMEINO.objects.get(imei_no=imei, used=False)
         except IMEINO.DoesNotExist:
@@ -906,7 +906,6 @@ class CustomerListCreateView(generics.ListCreateAPIView):
 
         serializer = CustomerGiftSerializer(customer)
         data = serializer.data
-        # Build absolute URL for gift image, handling both dict and list serializer outputs
         gift_data = data.get("gift")
         if isinstance(gift_data, dict):
             image = gift_data.get("image")
@@ -926,7 +925,6 @@ class CustomerListCreateView(generics.ListCreateAPIView):
         today_date = timezone.now().date()
         lucky_draw_system = customer.lucky_draw_system
 
-        # Update daily sales count
         sales_today, _ = Sales.objects.get_or_create(
             date=today_date,
             lucky_draw_system=lucky_draw_system,
@@ -938,7 +936,6 @@ class CustomerListCreateView(generics.ListCreateAPIView):
 
         phone_model = customer.phone_model
 
-        # ------------------ FIXED OFFERS ------------------ #
         fixed_offer = FixOffer.objects.filter(
             lucky_draw_system=lucky_draw_system, imei_no=customer.imei, quantity__gt=0
         ).first()
@@ -955,20 +952,22 @@ class CustomerListCreateView(generics.ListCreateAPIView):
                 fixed_offer.save()
                 return
 
-        # ------------------ PROCESSING OFFERS ------------------ #
-        # Gather available offers from both MobilePhoneOffer and ElectronicsShopOffer models
-        mobile_offers = MobilePhoneOffer.objects.filter(
-            lucky_draw_system=lucky_draw_system,
-            start_date__lte=today_date,
-            end_date__gte=today_date,
-            daily_quantity__gt=0,
+        mobile_offers = list(
+            MobilePhoneOffer.objects.filter(
+                lucky_draw_system=lucky_draw_system,
+                start_date__lte=today_date,
+                end_date__gte=today_date,
+                daily_quantity__gt=0,
+            )
         )
 
-        electronic_offers = ElectronicsShopOffer.objects.filter(
-            lucky_draw_system=lucky_draw_system,
-            start_date__lte=today_date,
-            end_date__gte=today_date,
-            daily_quantity__gt=0,
+        electronic_offers = list(
+            ElectronicsShopOffer.objects.filter(
+                lucky_draw_system=lucky_draw_system,
+                start_date__lte=today_date,
+                end_date__gte=today_date,
+                daily_quantity__gt=0,
+            )
         )
 
         region_str = (
@@ -977,7 +976,6 @@ class CustomerListCreateView(generics.ListCreateAPIView):
             else "Other"
         )
 
-        # Step 1: Collect matching campaign items and map structural gift layers safely
         matching_offers = []
 
         for offer in mobile_offers:
@@ -992,12 +990,13 @@ class CustomerListCreateView(generics.ListCreateAPIView):
             ) and self.check_validto_condition(offer, phone_model):
                 matching_offers.append(offer)
 
-        # Step 2: Core Ratio Assignment Engine
         if matching_offers:
-            # Group into standard condition blocks matching structural constraints
             offers_by_condition = {}
             for offer in matching_offers:
-                cv = int(offer.offer_condition_value)
+                try:
+                    cv = int(offer.offer_condition_value)
+                except (ValueError, TypeError):
+                    cv = 0
                 offers_by_condition.setdefault(cv, []).append(offer)
 
             assigned_gifts = []
@@ -1011,11 +1010,9 @@ class CustomerListCreateView(generics.ListCreateAPIView):
                 offers = offers_by_condition[cv]
                 offers_by_category = {}
 
-                # Map individual gifts inside valid categories securely
                 for offer in offers:
-                    # Abstract field variance between ForeignKey and ManyToMany managers safely
                     if hasattr(offer.gift, "all"):
-                        gifts = offer.gift.all()
+                        gifts = list(offer.gift.all())
                     else:
                         gifts = [offer.gift] if getattr(offer, "gift", None) else []
 
@@ -1026,7 +1023,6 @@ class CustomerListCreateView(generics.ListCreateAPIView):
                                 gift,
                             ))
 
-                # Process categories using our fixed Two-Pass mathematical balance matrix
                 for category, gift_options in offers_by_category.items():
                     if category in assigned_categories:
                         continue
@@ -1048,7 +1044,6 @@ class CustomerListCreateView(generics.ListCreateAPIView):
                     if not valid_options:
                         continue
 
-                    # Pinpoint true mathematical layout minimum trailing options
                     true_lowest_ratio = min(item[1] for item in valid_options)
                     tolerance = 0.01
 
@@ -1070,7 +1065,6 @@ class CustomerListCreateView(generics.ListCreateAPIView):
                 customer.save()
                 return
 
-        # ------------------ FALLBACK OVERFLOWS ------------------ #
         better_luck_gift = GiftItem.objects.filter(
             lucky_draw_system=lucky_draw_system, name__icontains="better luck next time"
         ).first()
@@ -1083,7 +1077,6 @@ class CustomerListCreateView(generics.ListCreateAPIView):
 
         customer.save()
 
-    # ---------------- OFFER CHECKING HELPERS ---------------- #
     def check_offer_condition(self, offer, sales_count, region):
         today_date = timezone.now().date()
         today_time = timezone.now().time()
@@ -1130,24 +1123,45 @@ class CustomerListCreateView(generics.ListCreateAPIView):
                 todayscount = Customer.objects.filter(
                     date_of_purchase=today_date, gift=selected_gift
                 ).count()
-            return (
-                sales_count % int(offer.offer_condition_value) == 0
-                and todayscount < offer.daily_quantity
-            )
+
+            try:
+                cond_val = int(offer.offer_condition_value)
+            except (ValueError, TypeError):
+                cond_val = 1
+
+            modulo_res = (sales_count % cond_val) if cond_val > 0 else 0
+            is_modulo_match = modulo_res == 0
+            is_qty_valid = todayscount < offer.daily_quantity
+
+            return is_modulo_match and is_qty_valid
 
         elif offer.type_of_offer == "At certain sale position":
-            return str(sales_count) in offer.sale_numbers
+            sale_nums = offer.sale_numbers or []
+            is_match = (
+                (str(sales_count) in sale_nums)
+                or (sales_count in sale_nums)
+                or (str(sales_count) in [str(x) for x in sale_nums])
+            )
+            return is_match
 
         return False
 
     def check_validto_condition(self, offer, phone_model):
-        if not phone_model:
-            return False
         if not offer.valid_condition.exists():
             return True
+
+        if not phone_model:
+            return False
+
+        phone_model_str = str(phone_model).strip()
         for condition in offer.valid_condition.all():
-            if phone_model.startswith(condition.condition):
+            cond_str = str(condition.condition).strip()
+            if (
+                phone_model_str.lower().startswith(cond_str.lower())
+                or cond_str.lower() in phone_model_str.lower()
+            ):
                 return True
+
         return False
 
 
