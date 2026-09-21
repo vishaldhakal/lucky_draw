@@ -125,13 +125,16 @@ class SlotMachineListCreateView(generics.ListCreateAPIView):
         return Response(data, status=status_code)
 
     # ---------------- GIFT ASSIGNMENT ---------------- #
-
-    # ---------------- GIFT ASSIGNMENT ---------------- #
     def assign_gift(self, customer):
         import random
 
         today_date = timezone.now().date()
         lucky_draw_system = customer.lucky_draw_system
+
+        # Ensure date_of_purchase is recorded on the customer
+        if not customer.date_of_purchase:
+            customer.date_of_purchase = today_date
+            customer.save(update_fields=["date_of_purchase"])
 
         # Update daily sales count
         sales_today, _ = Sales.objects.get_or_create(
@@ -170,17 +173,13 @@ class SlotMachineListCreateView(generics.ListCreateAPIView):
             daily_quantity__gt=0,
         )
 
-        # Step 1: collect offers that match condition and phone model
+        # Step 1: collect matching offers (EXCLUDING Better Luck Next Time from main evaluation)
         matching_offers = [
             offer
             for offer in electronic_offers
             if self.check_offer_condition(offer, sales_count, customer.region)
             and self.check_validto_condition(offer, phone_model)
         ]
-
-        if not matching_offers:
-            self._assign_fallback(customer, lucky_draw_system)
-            return
 
         # Step 2 & 3: group offers by condition value
         offers_by_condition = {}
@@ -192,7 +191,7 @@ class SlotMachineListCreateView(generics.ListCreateAPIView):
             offers_by_condition.setdefault(cv, []).append(offer)
 
         assigned_gifts = []
-        assigned_categories = set()  # Track categories already assigned
+        assigned_categories = set()
 
         # Step 4: assign gifts in ASCENDING order (cv = 1 [Minor] FIRST, then cv = 3, 6 [Major])
         for cv in sorted(offers_by_condition.keys()):
@@ -202,12 +201,16 @@ class SlotMachineListCreateView(generics.ListCreateAPIView):
             offers_by_category = {}
             for offer in offers:
                 for gift in offer.gift.all():
+                    # DO NOT let "Better Luck Next Time" occupy the Major Gift slot during cv=1
+                    if "better luck" in gift.name.lower():
+                        continue
+
                     offers_by_category.setdefault(gift.category, []).append((
                         offer,
                         gift,
                     ))
 
-            # Assign best gift per category (Minor Gift evaluated before Major Gift)
+            # Assign best gift per category
             for category, gift_options in offers_by_category.items():
                 if category in assigned_categories:
                     continue
@@ -220,7 +223,6 @@ class SlotMachineListCreateView(generics.ListCreateAPIView):
 
                     total_quantity = max(offer.daily_quantity, 1)
 
-                    # Cap enforcement: Skip if daily limit is reached
                     if already_assigned >= total_quantity:
                         continue
 
@@ -230,7 +232,7 @@ class SlotMachineListCreateView(generics.ListCreateAPIView):
                 if not valid_options:
                     continue
 
-                # Find the lowest assigned ratio for balanced distribution
+                # Pick least assigned gift for balanced distribution
                 lowest_ratio = min(item[1] for item in valid_options)
                 tolerance = 0.01
 
@@ -240,43 +242,22 @@ class SlotMachineListCreateView(generics.ListCreateAPIView):
                     if ratio <= (lowest_ratio + tolerance)
                 ]
 
-                # Filter out "Better Luck Next Time" if real gifts exist in candidates
-                real_gift_candidates = [
-                    g for g in best_candidates if "better luck" not in g.name.lower()
-                ]
-
-                if real_gift_candidates:
-                    selected_gift = random.choice(real_gift_candidates)
-                elif best_candidates:
+                if best_candidates:
                     selected_gift = random.choice(best_candidates)
-                else:
-                    selected_gift = None
-
-                if selected_gift:
                     customer.gift.add(selected_gift)
                     assigned_gifts.append(selected_gift)
-                    assigned_categories.add(category)  # Mark category as done
+                    assigned_categories.add(category)  # Mark category as assigned
 
-        # Filter out "Better Luck Next Time" if real gifts were won
-        real_assigned_gifts = [
-            g for g in assigned_gifts if "better luck" not in g.name.lower()
-        ]
-
-        # Step 5: save prize details
-        if real_assigned_gifts:
-            customer.gift.set(real_assigned_gifts)
-            gift_names = ", ".join([gift.name for gift in real_assigned_gifts])
+        # Step 5: Save prize details or assign fallback
+        if assigned_gifts:
+            gift_names = ", ".join([gift.name for gift in assigned_gifts])
             customer.prize_details = f"Congratulations! You've won {gift_names}"
-        elif assigned_gifts:
-            customer.prize_details = "Better luck next time!"
+            customer.save()
         else:
             self._assign_fallback(customer, lucky_draw_system)
-            return
-
-        customer.save()
 
     def _assign_fallback(self, customer, lucky_draw_system):
-        """Helper method to handle default 'Better Luck Next Time' response"""
+        """Helper method to assign 'Better Luck Next Time' when no gifts are won"""
         better_luck_gift = GiftItem.objects.filter(
             lucky_draw_system=lucky_draw_system, name__icontains="better luck next time"
         ).first()
@@ -314,6 +295,7 @@ class SlotMachineListCreateView(generics.ListCreateAPIView):
                 return False
 
         if offer.type_of_offer == "After every certain sale":
+            # Calculate todays_gift_count for specific items in this offer
             todays_gift_count = (
                 Customer.objects
                 .filter(date_of_purchase=today_date, gift__in=offer.gift.all())
@@ -337,23 +319,5 @@ class SlotMachineListCreateView(generics.ListCreateAPIView):
                 or (sales_count in sale_nums)
                 or (str(sales_count) in [str(x) for x in sale_nums])
             )
-
-        return False
-
-    def check_validto_condition(self, offer, phone_model):
-        if not offer.valid_condition.exists():
-            return True
-
-        if not phone_model:
-            return False
-
-        phone_model_str = str(phone_model).strip()
-        for condition in offer.valid_condition.all():
-            cond_str = str(condition.condition).strip()
-            if (
-                phone_model_str.lower().startswith(cond_str.lower())
-                or cond_str.lower() in phone_model_str.lower()
-            ):
-                return True
 
         return False
