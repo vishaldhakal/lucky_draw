@@ -9,6 +9,7 @@ from .models import *
 
 class GiftItemAdmin(ModelAdmin):
     list_display = ("name", "category", "lucky_draw_system")
+    list_filter = ("lucky_draw_system", "category")
     search_fields = ["name"]  # or whichever fields should be searchable
 
 
