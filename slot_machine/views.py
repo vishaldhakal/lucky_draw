@@ -126,239 +126,234 @@ class SlotMachineListCreateView(generics.ListCreateAPIView):
 
     # ---------------- GIFT ASSIGNMENT ---------------- #
 
+    # ---------------- GIFT ASSIGNMENT ---------------- #
+    def assign_gift(self, customer):
+        import random
 
-# ---------------- GIFT ASSIGNMENT ---------------- #
-def assign_gift(self, customer):
-    import random
+        today_date = timezone.now().date()
+        lucky_draw_system = customer.lucky_draw_system
 
-    today_date = timezone.now().date()
-    lucky_draw_system = customer.lucky_draw_system
+        # Update daily sales count
+        sales_today, _ = Sales.objects.get_or_create(
+            date=today_date,
+            lucky_draw_system=lucky_draw_system,
+            defaults={"sales_count": 0},
+        )
+        sales_today.sales_count += 1
+        sales_today.save()
+        sales_count = sales_today.sales_count
 
-    # Update daily sales count
-    sales_today, _ = Sales.objects.get_or_create(
-        date=today_date,
-        lucky_draw_system=lucky_draw_system,
-        defaults={"sales_count": 0},
-    )
-    sales_today.sales_count += 1
-    sales_today.save()
-    sales_count = sales_today.sales_count
+        phone_model = customer.phone_model
+        phone_number = customer.phone_number
 
-    phone_model = customer.phone_model
-    phone_number = customer.phone_number
+        # ------------------ FIXED OFFERS ------------------ #
+        fixed_offer = FixOffer.objects.filter(
+            lucky_draw_system=lucky_draw_system,
+            phone_number=phone_number,
+            quantity__gt=0,
+        ).first()
 
-    # ------------------ FIXED OFFERS ------------------ #
-    fixed_offer = FixOffer.objects.filter(
-        lucky_draw_system=lucky_draw_system,
-        phone_number=phone_number,
-        quantity__gt=0,
-    ).first()
+        if fixed_offer:
+            customer.gift.set(fixed_offer.gift.all())
+            gift_names = ", ".join([gift.name for gift in fixed_offer.gift.all()])
+            customer.prize_details = f"Congratulations! You've won {gift_names}"
+            customer.save()
+            fixed_offer.quantity -= 1
+            fixed_offer.save()
+            return
 
-    if fixed_offer:
-        customer.gift.set(fixed_offer.gift.all())
-        gift_names = ", ".join([gift.name for gift in fixed_offer.gift.all()])
-        customer.prize_details = f"Congratulations! You've won {gift_names}"
-        customer.save()
-        fixed_offer.quantity -= 1
-        fixed_offer.save()
-        return
+        # ------------------ ELECTRONIC OFFERS ------------------ #
+        electronic_offers = ElectronicsShopOffer.objects.filter(
+            lucky_draw_system=lucky_draw_system,
+            start_date__lte=today_date,
+            end_date__gte=today_date,
+            daily_quantity__gt=0,
+        )
 
-    # ------------------ ELECTRONIC OFFERS ------------------ #
-    electronic_offers = ElectronicsShopOffer.objects.filter(
-        lucky_draw_system=lucky_draw_system,
-        start_date__lte=today_date,
-        end_date__gte=today_date,
-        daily_quantity__gt=0,
-    )
+        # Step 1: collect offers that match condition and phone model
+        matching_offers = [
+            offer
+            for offer in electronic_offers
+            if self.check_offer_condition(offer, sales_count, customer.region)
+            and self.check_validto_condition(offer, phone_model)
+        ]
 
-    # Step 1: collect offers that match condition and phone model
-    matching_offers = [
-        offer
-        for offer in electronic_offers
-        if self.check_offer_condition(offer, sales_count, customer.region)
-        and self.check_validto_condition(offer, phone_model)
-    ]
+        if not matching_offers:
+            self._assign_fallback(customer, lucky_draw_system)
+            return
 
-    if not matching_offers:
-        self._assign_fallback(customer, lucky_draw_system)
-        return
+        # Step 2 & 3: group offers by condition value
+        offers_by_condition = {}
+        for offer in matching_offers:
+            try:
+                cv = int(offer.offer_condition_value)
+            except (ValueError, TypeError):
+                cv = 0
+            offers_by_condition.setdefault(cv, []).append(offer)
 
-    # Step 2 & 3: group offers by condition value
-    offers_by_condition = {}
-    for offer in matching_offers:
-        try:
-            cv = int(offer.offer_condition_value)
-        except (ValueError, TypeError):
-            cv = 0
-        offers_by_condition.setdefault(cv, []).append(offer)
+        assigned_gifts = []
+        assigned_categories = set()  # Track categories already assigned
 
-    assigned_gifts = []
-    assigned_categories = set()  # Track categories already assigned
+        # Step 4: assign gifts in ASCENDING order (cv = 1 [Minor] FIRST, then cv = 3, 6 [Major])
+        for cv in sorted(offers_by_condition.keys()):
+            offers = offers_by_condition[cv]
 
-    # Step 4: assign gifts in ASCENDING order (cv = 1 [Minor] FIRST, then cv = 3, 6 [Major])
-    for cv in sorted(offers_by_condition.keys()):
-        offers = offers_by_condition[cv]
+            # Group gifts by category (Minor Gift, Major Gift, etc.)
+            offers_by_category = {}
+            for offer in offers:
+                for gift in offer.gift.all():
+                    offers_by_category.setdefault(gift.category, []).append((
+                        offer,
+                        gift,
+                    ))
 
-        # Group gifts by category (Minor Gift, Major Gift, etc.)
-        offers_by_category = {}
-        for offer in offers:
-            for gift in offer.gift.all():
-                offers_by_category.setdefault(gift.category, []).append((
-                    offer,
-                    gift,
-                ))
-
-        # Assign best gift per category (Minor Gift evaluated before Major Gift)
-        for category, gift_options in offers_by_category.items():
-            if category in assigned_categories:
-                continue
-
-            valid_options = []
-            for offer, gift in gift_options:
-                already_assigned = Customer.objects.filter(
-                    date_of_purchase=today_date, gift=gift
-                ).count()
-
-                total_quantity = max(offer.daily_quantity, 1)
-
-                # Cap enforcement: Skip if daily limit is reached
-                if already_assigned >= total_quantity:
+            # Assign best gift per category (Minor Gift evaluated before Major Gift)
+            for category, gift_options in offers_by_category.items():
+                if category in assigned_categories:
                     continue
 
-                assigned_ratio = already_assigned / total_quantity
-                valid_options.append((gift, assigned_ratio))
+                valid_options = []
+                for offer, gift in gift_options:
+                    already_assigned = Customer.objects.filter(
+                        date_of_purchase=today_date, gift=gift
+                    ).count()
 
-            if not valid_options:
-                continue
+                    total_quantity = max(offer.daily_quantity, 1)
 
-            # Find the lowest assigned ratio for balanced distribution
-            lowest_ratio = min(item[1] for item in valid_options)
-            tolerance = 0.01
+                    # Cap enforcement: Skip if daily limit is reached
+                    if already_assigned >= total_quantity:
+                        continue
 
-            best_candidates = [
-                gift
-                for gift, ratio in valid_options
-                if ratio <= (lowest_ratio + tolerance)
-            ]
+                    assigned_ratio = already_assigned / total_quantity
+                    valid_options.append((gift, assigned_ratio))
 
-            # Filter out "Better Luck Next Time" if real gifts exist in candidates
-            real_gift_candidates = [
-                g for g in best_candidates if "better luck" not in g.name.lower()
-            ]
+                if not valid_options:
+                    continue
 
-            if real_gift_candidates:
-                selected_gift = random.choice(real_gift_candidates)
-            elif best_candidates:
-                selected_gift = random.choice(best_candidates)
-            else:
-                selected_gift = None
+                # Find the lowest assigned ratio for balanced distribution
+                lowest_ratio = min(item[1] for item in valid_options)
+                tolerance = 0.01
 
-            if selected_gift:
-                customer.gift.add(selected_gift)
-                assigned_gifts.append(selected_gift)
-                assigned_categories.add(category)  # Mark category as done
+                best_candidates = [
+                    gift
+                    for gift, ratio in valid_options
+                    if ratio <= (lowest_ratio + tolerance)
+                ]
 
-    # Filter out "Better Luck Next Time" if real gifts were won
-    real_assigned_gifts = [
-        g for g in assigned_gifts if "better luck" not in g.name.lower()
-    ]
+                # Filter out "Better Luck Next Time" if real gifts exist in candidates
+                real_gift_candidates = [
+                    g for g in best_candidates if "better luck" not in g.name.lower()
+                ]
 
-    # Step 5: save prize details
-    if real_assigned_gifts:
-        customer.gift.set(real_assigned_gifts)
-        gift_names = ", ".join([gift.name for gift in real_assigned_gifts])
-        customer.prize_details = f"Congratulations! You've won {gift_names}"
-    elif assigned_gifts:
-        customer.prize_details = "Better luck next time!"
-    else:
-        self._assign_fallback(customer, lucky_draw_system)
-        return
+                if real_gift_candidates:
+                    selected_gift = random.choice(real_gift_candidates)
+                elif best_candidates:
+                    selected_gift = random.choice(best_candidates)
+                else:
+                    selected_gift = None
 
-    customer.save()
+                if selected_gift:
+                    customer.gift.add(selected_gift)
+                    assigned_gifts.append(selected_gift)
+                    assigned_categories.add(category)  # Mark category as done
 
+        # Filter out "Better Luck Next Time" if real gifts were won
+        real_assigned_gifts = [
+            g for g in assigned_gifts if "better luck" not in g.name.lower()
+        ]
 
-def _assign_fallback(self, customer, lucky_draw_system):
-    """Helper method to handle default 'Better Luck Next Time' response"""
-    better_luck_gift = GiftItem.objects.filter(
-        lucky_draw_system=lucky_draw_system, name__icontains="better luck next time"
-    ).first()
+        # Step 5: save prize details
+        if real_assigned_gifts:
+            customer.gift.set(real_assigned_gifts)
+            gift_names = ", ".join([gift.name for gift in real_assigned_gifts])
+            customer.prize_details = f"Congratulations! You've won {gift_names}"
+        elif assigned_gifts:
+            customer.prize_details = "Better luck next time!"
+        else:
+            self._assign_fallback(customer, lucky_draw_system)
+            return
 
-    if better_luck_gift:
-        customer.gift.set([better_luck_gift])
-        customer.prize_details = "Better luck next time!"
-    else:
-        customer.prize_details = "Thank you for your purchase!"
+        customer.save()
 
-    customer.save()
+    def _assign_fallback(self, customer, lucky_draw_system):
+        """Helper method to handle default 'Better Luck Next Time' response"""
+        better_luck_gift = GiftItem.objects.filter(
+            lucky_draw_system=lucky_draw_system, name__icontains="better luck next time"
+        ).first()
 
+        if better_luck_gift:
+            customer.gift.set([better_luck_gift])
+            customer.prize_details = "Better luck next time!"
+        else:
+            customer.prize_details = "Thank you for your purchase!"
 
-# ---------------- OFFER CHECKING ---------------- #
+        customer.save()
 
+    # ---------------- OFFER CHECKING ---------------- #
 
-def check_offer_condition(self, offer, sales_count, region="None"):
-    today_date = timezone.now().date()
-    today_time = timezone.now().time()
+    def check_offer_condition(self, offer, sales_count, region="None"):
+        today_date = timezone.now().date()
+        today_time = timezone.now().time()
 
-    if offer.has_region_limit:
-        if region == "None" or region == "Other":
-            return False
+        if offer.has_region_limit:
+            if region == "None" or region == "Other":
+                return False
 
-        region_counts = {}
-        for gift in offer.gift.all():
-            region_counts[region] = Customer.objects.filter(
-                region=region, gift=gift, date_of_purchase=today_date
-            ).count()
+            region_counts = {}
+            for gift in offer.gift.all():
+                region_counts[region] = Customer.objects.filter(
+                    region=region, gift=gift, date_of_purchase=today_date
+                ).count()
 
-        max_gifts_per_region = 5
-        if region_counts.get(region, 0) >= max_gifts_per_region:
-            return False
+            max_gifts_per_region = 5
+            if region_counts.get(region, 0) >= max_gifts_per_region:
+                return False
 
-    if offer.has_time_limit:
-        if today_time < offer.start_time or today_time > offer.end_time:
-            return False
+        if offer.has_time_limit:
+            if today_time < offer.start_time or today_time > offer.end_time:
+                return False
 
-    if offer.type_of_offer == "After every certain sale":
-        todays_gift_count = (
-            Customer.objects
-            .filter(date_of_purchase=today_date, gift__in=offer.gift.all())
-            .distinct()
-            .count()
-        )
+        if offer.type_of_offer == "After every certain sale":
+            todays_gift_count = (
+                Customer.objects
+                .filter(date_of_purchase=today_date, gift__in=offer.gift.all())
+                .distinct()
+                .count()
+            )
 
-        try:
-            cond_val = int(offer.offer_condition_value)
-        except (ValueError, TypeError):
-            cond_val = 1
+            try:
+                cond_val = int(offer.offer_condition_value)
+            except (ValueError, TypeError):
+                cond_val = 1
 
-        is_modulo_match = (sales_count % cond_val == 0) if cond_val > 0 else False
+            is_modulo_match = (sales_count % cond_val == 0) if cond_val > 0 else False
 
-        return is_modulo_match and todays_gift_count < offer.daily_quantity
+            return is_modulo_match and todays_gift_count < offer.daily_quantity
 
-    elif offer.type_of_offer == "At certain sale position":
-        sale_nums = offer.sale_numbers or []
-        return (
-            (str(sales_count) in sale_nums)
-            or (sales_count in sale_nums)
-            or (str(sales_count) in [str(x) for x in sale_nums])
-        )
+        elif offer.type_of_offer == "At certain sale position":
+            sale_nums = offer.sale_numbers or []
+            return (
+                (str(sales_count) in sale_nums)
+                or (sales_count in sale_nums)
+                or (str(sales_count) in [str(x) for x in sale_nums])
+            )
 
-    return False
-
-
-def check_validto_condition(self, offer, phone_model):
-    if not offer.valid_condition.exists():
-        return True
-
-    if not phone_model:
         return False
 
-    phone_model_str = str(phone_model).strip()
-    for condition in offer.valid_condition.all():
-        cond_str = str(condition.condition).strip()
-        if (
-            phone_model_str.lower().startswith(cond_str.lower())
-            or cond_str.lower() in phone_model_str.lower()
-        ):
+    def check_validto_condition(self, offer, phone_model):
+        if not offer.valid_condition.exists():
             return True
 
-    return False
+        if not phone_model:
+            return False
+
+        phone_model_str = str(phone_model).strip()
+        for condition in offer.valid_condition.all():
+            cond_str = str(condition.condition).strip()
+            if (
+                phone_model_str.lower().startswith(cond_str.lower())
+                or cond_str.lower() in phone_model_str.lower()
+            ):
+                return True
+
+        return False
