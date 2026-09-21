@@ -321,3 +321,21 @@ class SlotMachineListCreateView(generics.ListCreateAPIView):
             )
 
         return False
+
+    def check_validto_condition(self, offer, phone_model):
+        if not offer.valid_condition.exists():
+            return True
+
+        if not phone_model:
+            return False
+
+        phone_model_str = str(phone_model).strip()
+        for condition in offer.valid_condition.all():
+            cond_str = str(condition.condition).strip()
+            if (
+                phone_model_str.lower().startswith(cond_str.lower())
+                or cond_str.lower() in phone_model_str.lower()
+            ):
+                return True
+
+        return False
