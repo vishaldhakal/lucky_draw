@@ -102,6 +102,7 @@ class ElectronicsShopOfferAdmin(ModelAdmin):
         "start_date",
         "end_date",
     )
+    list_editable = ("offer_condition_value", "daily_quantity")
     autocomplete_fields = ["gift"]  # <--- searchable dropdown for gifts
 
     def get_gifts(self, obj):
