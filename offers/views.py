@@ -5,6 +5,7 @@ import io
 from django.db.models import Count
 from django.http import HttpResponse
 from django.utils import timezone
+from django.utils.text import slugify
 from rest_framework import generics, status
 from rest_framework.decorators import api_view
 from rest_framework.permissions import IsAuthenticated
@@ -1392,50 +1393,71 @@ def download_customers_detail(request):
         return response
 
 
-def export_data(request, pk):
-    response = HttpResponse(content_type="text/csv")
-    response["Content-Disposition"] = 'attachment; filename="today.csv"'
-    writer = csv.writer(response)
-    luckydraw = LuckyDrawSystem.objects.get(id=pk)
-    cust = Customer.objects.filter(lucky_draw_system=luckydraw)
+def is_value_empty(val):
+    if val is None or val == "":
+        return True
+    if isinstance(val, str) and val.strip().lower() in ("", "none", "null"):
+        return True
+    return False
 
-    writer.writerow([
-        "Customer Name",
-        "Shop Name",
-        "Sold Area",
-        "Phone Number",
-        "Email",
-        "Phone Model",
-        "IMEI",
-        "How Know About Campaign",
-        "Profession",
-        "Region",
-        "Gift",
-        "Date of Purchase",
-        "Prize Details",
-        "Recharge Card",
-        "NTC Recharge Card",
-        "Amount of Ntc Card",
-    ])
+
+def export_data(request, pk):
+    luckydraw = LuckyDrawSystem.objects.get(id=pk)
+    today_date = timezone.now().date()
+    safe_name = slugify(luckydraw.name) if luckydraw.name else "luckydraw"
+    filename = f"{safe_name}_{today_date}.csv"
+
+    response = HttpResponse(content_type="text/csv")
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    writer = csv.writer(response)
+
+    cust = (
+        Customer.objects
+        .filter(lucky_draw_system=luckydraw)
+        .prefetch_related("gift")
+        .select_related("recharge_card")
+    )
+
+    filter_param = request.GET.get("filter")
+    if filter_param == "today":
+        cust = cust.filter(date_of_purchase=today_date)
+
+    columns_def = [
+        ("Date of Purchase", lambda c, g: c.date_of_purchase),
+        ("Customer Name", lambda c, g: c.customer_name),
+        ("Shop Name", lambda c, g: c.shop_name),
+        ("Sold Area", lambda c, g: c.sold_area),
+        ("Phone Number", lambda c, g: c.phone_number),
+        ("Email", lambda c, g: c.email),
+        ("Phone Model", lambda c, g: c.phone_model),
+        ("IMEI", lambda c, g: c.imei),
+        ("How Know About Campaign", lambda c, g: c.how_know_about_campaign),
+        ("Profession", lambda c, g: c.profession),
+        ("Region", lambda c, g: c.region),
+        ("Gift", lambda c, g: ", ".join([gift.name for gift in g]) if g else ""),
+        ("Prize Details", lambda c, g: c.prize_details),
+    ]
+
+    all_rows = []
     for customer in cust:
-        writer.writerow([
-            customer.customer_name,
-            customer.shop_name,
-            customer.sold_area,
-            customer.phone_number,
-            customer.email,
-            customer.phone_model,
-            customer.imei,
-            customer.how_know_about_campaign,
-            customer.profession,
-            customer.region,
-            ", ".join([gift.name for gift in customer.gift.all()])
-            if customer.gift.exists()
-            else "",
-            customer.date_of_purchase,
-            customer.prize_details,
-            customer.recharge_card,
-            customer.ntc_recharge_card,
-            customer.amount_of_card,
-        ])
+        gifts = list(customer.gift.all())
+        row = [getter(customer, gifts) for _, getter in columns_def]
+        all_rows.append(row)
+
+    if all_rows:
+        active_indices = [
+            col_idx
+            for col_idx in range(len(columns_def))
+            if any(not is_value_empty(row[col_idx]) for row in all_rows)
+        ]
+    else:
+        active_indices = list(range(len(columns_def)))
+
+    headers = [columns_def[idx][0] for idx in active_indices]
+    writer.writerow(headers)
+
+    for row in all_rows:
+        filtered_row = [row[idx] for idx in active_indices]
+        writer.writerow(filtered_row)
+
     return response

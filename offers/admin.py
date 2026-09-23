@@ -17,6 +17,7 @@ admin.site.register(GiftItem, GiftItemAdmin)
 
 
 class LuckyDrawSystemAdmin(ModelAdmin):
+    list_display = ("name", "type", "id", "start_date", "end_date")
     formfield_overrides = {
         models.TextField: {
             "widget": TinyMCE,
@@ -73,7 +74,13 @@ class CustomerAdmin(ModelAdmin):
         "how_know_about_campaign",
         "date_of_purchase",
     )
-    list_display = ("customer_name", "imei", "prize_details", "region")
+    list_display = (
+        "customer_name",
+        "imei",
+        "prize_details",
+        "region",
+        "date_of_purchase",
+    )
     search_fields = ("customer_name", "imei", "prize_details", "region")
 
 
