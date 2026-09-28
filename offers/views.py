@@ -1422,6 +1422,23 @@ def export_data(request, pk):
     if filter_param == "today":
         cust = cust.filter(date_of_purchase=today_date)
 
+    start_date_param = request.GET.get("start_date")
+    end_date_param = request.GET.get("end_date")
+
+    if start_date_param:
+        try:
+            start_date = datetime.datetime.strptime(start_date_param, "%Y-%m-%d").date()
+            cust = cust.filter(date_of_purchase__gte=start_date)
+        except ValueError:
+            pass
+
+    if end_date_param:
+        try:
+            end_date = datetime.datetime.strptime(end_date_param, "%Y-%m-%d").date()
+            cust = cust.filter(date_of_purchase__lte=end_date)
+        except ValueError:
+            pass
+
     columns_def = [
         ("Date of Purchase", lambda c, g: c.date_of_purchase),
         ("Customer Name", lambda c, g: c.customer_name),
