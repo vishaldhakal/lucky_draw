@@ -1,8 +1,23 @@
 from django.contrib import admin
+from django.db import models
 from tinymce.widgets import TinyMCE
 from unfold.admin import ModelAdmin
 
-from .models import *
+from .models import (
+    Customer,
+    ElectronicOfferCondition,
+    ElectronicsShopOffer,
+    FixOffer,
+    GiftItem,
+    IMEINO,
+    LuckyDrawSystem,
+    MobileOfferCondition,
+    MobilePhoneOffer,
+    RechargeCard,
+    RechargeCardCondition,
+    RechargeCardOffer,
+    Sales,
+)
 
 # Register your models here.
 
@@ -35,12 +50,17 @@ admin.site.register(FixOffer, ModelAdmin)
 
 class MobilePhoneOfferAdmin(ModelAdmin):
     list_display = (
-        "gift__name",
+        "type_of_offer",
+        "gift",
         "lucky_draw_system",
+        "offer_condition_value",
+        "daily_quantity",
         "start_date",
         "end_date",
-        "offer_condition_value",
     )
+    list_editable = ("offer_condition_value", "daily_quantity")
+    autocomplete_fields = ["gift"]
+    list_select_related = ("gift", "gift__lucky_draw_system", "lucky_draw_system")
 
     fieldsets = (
         (
