@@ -26,6 +26,7 @@ from .models import (
     Sales,
 )
 from .serializers import (
+    BulkDeleteLuckyDrawIMEISerializer,
     CustomerGiftSerializer,
     CustomerSerializer,
     ElectronicShopOfferConditionSerializer,
@@ -40,6 +41,7 @@ from .serializers import (
     RechargeCardOfferSerializer,
     RechargeCardSerializer,
 )
+from .services.imei_service import delete_imeis_for_lucky_draw_system
 
 
 # Create your views here.
@@ -360,6 +362,57 @@ class IMEINORetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
         instance = self.get_object()
         instance.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class DeleteLuckyDrawIMEIsView(generics.GenericAPIView):
+    """
+    API endpoint to bulk delete all (or unused) IMEI numbers of a selected Lucky Draw System.
+    Handles high volumes (40,000+ records) efficiently using chunked batch deletion.
+    """
+
+    serializer_class = BulkDeleteLuckyDrawIMEISerializer
+    # permission_classes = [IsAuthenticated]
+
+    def _process_bulk_delete(self, request, lucky_draw_system_id=None):
+        payload = (
+            request.data.copy() if hasattr(request.data, "copy") else dict(request.data)
+        )
+
+        # Support lucky_draw_system_id from URL kwarg, request body, or query params
+        if lucky_draw_system_id is not None:
+            payload["lucky_draw_system"] = lucky_draw_system_id
+        elif "lucky_draw_system" not in payload and "lucky_draw_system_id" in payload:
+            payload["lucky_draw_system"] = payload.get("lucky_draw_system_id")
+        elif "lucky_draw_system" not in payload and request.query_params.get(
+            "lucky_draw_system_id"
+        ):
+            payload["lucky_draw_system"] = request.query_params.get(
+                "lucky_draw_system_id"
+            )
+
+        serializer = self.get_serializer(data=payload)
+        serializer.is_valid(raise_exception=True)
+        validated_data = serializer.validated_data
+
+        lucky_draw = validated_data["lucky_draw_system"]
+
+        result = delete_imeis_for_lucky_draw_system(
+            lucky_draw_system_id=lucky_draw.id,
+            only_unused=validated_data.get("only_unused", False),
+            batch_size=validated_data.get("batch_size", 5000),
+        )
+
+        return Response(result, status=status.HTTP_200_OK)
+
+    def delete(self, request, lucky_draw_system_id=None, *args, **kwargs):
+        return self._process_bulk_delete(
+            request, lucky_draw_system_id=lucky_draw_system_id
+        )
+
+    def post(self, request, lucky_draw_system_id=None, *args, **kwargs):
+        return self._process_bulk_delete(
+            request, lucky_draw_system_id=lucky_draw_system_id
+        )
 
 
 class FixOfferListCreateView(generics.ListCreateAPIView):

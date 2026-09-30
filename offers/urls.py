@@ -51,6 +51,17 @@ urlpatterns = [
         views.IMEINORetrieveUpdateDestroyView.as_view(),
         name="imeino-detail",
     ),
+    path(
+        "lucky-draw-systems/<int:lucky_draw_system_id>/delete-imeis/",
+        views.DeleteLuckyDrawIMEIsView.as_view(),
+        name="luckydrawsystem-delete-imeis",
+    ),
+    path(
+        "delete-lucky-draw-imeis/",
+        views.DeleteLuckyDrawIMEIsView.as_view(),
+        name="delete-luckydraw-imeis-bulk",
+    ),
+
     # FixOffer URLs
     path(
         "fix-offers/",

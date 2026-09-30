@@ -166,3 +166,54 @@ class CustomerGiftSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         self.fields["gift"].context.update(self.context)
         return super().to_representation(instance)
+
+
+class BulkDeleteLuckyDrawIMEISerializer(serializers.Serializer):
+    lucky_draw_system = serializers.PrimaryKeyRelatedField(
+        queryset=LuckyDrawSystem.objects.all(),
+        required=True,
+        help_text="Select Lucky Draw System.",
+    )
+    only_unused = serializers.BooleanField(
+        required=False,
+        default=False,
+        help_text="If True, only delete unused IMEI numbers (used=False). Default is False (delete all).",
+    )
+    batch_size = serializers.IntegerField(
+        required=False,
+        default=5000,
+        min_value=0,
+        max_value=50000,
+        help_text="Chunk size for batch deletion (0 for single atomic query). Default is 5000.",
+    )
+
+    def to_internal_value(self, data):
+        data = data.copy() if hasattr(data, "copy") else dict(data)
+
+        # Support aliases like lucky_draw_system_id or system_id
+        if "lucky_draw_system" not in data or data["lucky_draw_system"] in ("", None):
+            if "lucky_draw_system_id" in data and data["lucky_draw_system_id"] not in ("", None):
+                data["lucky_draw_system"] = data["lucky_draw_system_id"]
+            elif "system_id" in data and data["system_id"] not in ("", None):
+                data["lucky_draw_system"] = data["system_id"]
+
+        return super().to_internal_value(data)
+
+    def validate_lucky_draw_system(self, value):
+        request = self.context.get("request")
+        if (
+            request
+            and hasattr(request, "user")
+            and getattr(request.user, "is_authenticated", False)
+            and hasattr(request.user, "organization")
+            and request.user.organization
+            and not getattr(request.user, "is_superuser", False)
+        ):
+            if value.organization_id != request.user.organization.id:
+                raise serializers.ValidationError(
+                    "You do not have permission to delete IMEIs for this lucky draw system."
+                )
+        return value
+
+
+
