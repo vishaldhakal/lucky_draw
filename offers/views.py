@@ -1,13 +1,14 @@
 import csv
 import datetime
-import io
 
+from django.core.exceptions import ValidationError
 from django.db.models import Count
 from django.http import HttpResponse
 from django.utils import timezone
 from django.utils.text import slugify
 from rest_framework import generics, status
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, parser_classes
+from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
@@ -27,6 +28,7 @@ from .models import (
 )
 from .serializers import (
     BulkDeleteLuckyDrawIMEISerializer,
+    BulkUploadIMEISerializer,
     CustomerGiftSerializer,
     CustomerSerializer,
     ElectronicShopOfferConditionSerializer,
@@ -41,7 +43,10 @@ from .serializers import (
     RechargeCardOfferSerializer,
     RechargeCardSerializer,
 )
-from .services.imei_service import delete_imeis_for_lucky_draw_system
+from .services.imei_service import (
+    bulk_upload_imeis_from_csv,
+    delete_imeis_for_lucky_draw_system,
+)
 
 
 # Create your views here.
@@ -1302,56 +1307,77 @@ def gift_count_last_100(request):
 
 
 @api_view(["POST"])
+@parser_classes([MultiPartParser, FormParser])
 def UploadImeiBulk(request):
-    if request.method == "POST":
-        file = request.FILES.get("file")
-        if not file:
-            return Response(
-                {"error": "CSV file is required."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+    """
+    Bulk upload IMEI numbers from a CSV file.
+    Optimized for high-volume uploads (50,000+ records) using streaming file I/O,
+    in-memory deduplication, and PostgreSQL chunked bulk_create with conflict ignoring.
+    """
+    if request.method != "POST":
+        return Response(
+            {"error": "Invalid request method. Please use POST method."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
-        lucky_draw_system_id = request.data.get("lucky_draw_system")
-        try:
-            lucky_draw_system = LuckyDrawSystem.objects.get(id=lucky_draw_system_id)
-        except (LuckyDrawSystem.DoesNotExist, ValueError):
-            return Response(
-                {"error": "Invalid Lucky Draw System."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        if file.name.endswith(".csv"):
-            data_set = file.read().decode("UTF-8")
-            io_string = io.StringIO(data_set)
-            next(io_string, None)  # Skip header row safely
-
-            for column in csv.reader(io_string, delimiter=",", quotechar="|"):
-                if not column or not column[0].strip():
-                    continue
-
-                imei_no = column[0].strip()
-                phone_model = column[1].strip() if len(column) > 1 else ""
-
-                if not IMEINO.objects.filter(imei_no=imei_no).exists():
-                    imei = IMEINO()
-                    imei.imei_no = imei_no
-                    imei.lucky_draw_system = lucky_draw_system
-                    imei.phone_model = phone_model
-                    imei.save()
-
-            return Response(
-                {"message": "IMEI numbers uploaded successfully"},
-                status=status.HTTP_201_CREATED,
-            )
-        else:
-            return Response(
-                {"error": "Invalid file format. Please upload a CSV file."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-    return Response(
-        {"error": "Invalid request method. Please use POST method."},
-        status=status.HTTP_400_BAD_REQUEST,
+    payload = (
+        request.data.copy() if hasattr(request.data, "copy") else dict(request.data)
     )
+    if "file" not in payload and "file" in request.FILES:
+        payload["file"] = request.FILES["file"]
+
+    serializer = BulkUploadIMEISerializer(data=payload, context={"request": request})
+    if not serializer.is_valid():
+        first_field = next(iter(serializer.errors))
+        first_err = serializer.errors[first_field]
+        err_msg = (
+            first_err[0]
+            if isinstance(first_err, list) and first_err
+            else str(first_err)
+        )
+        return Response(
+            {"error": err_msg, "details": serializer.errors},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    validated_data = serializer.validated_data
+    lucky_draw_system = validated_data["lucky_draw_system"]
+    file_obj = validated_data["file"]
+    batch_size = validated_data.get("batch_size", 5000)
+
+    org = None
+    if (
+        hasattr(request, "user")
+        and getattr(request.user, "is_authenticated", False)
+        and hasattr(request.user, "organization")
+        and request.user.organization
+        and not getattr(request.user, "is_superuser", False)
+    ):
+        org = request.user.organization
+
+    try:
+        result = bulk_upload_imeis_from_csv(
+            lucky_draw_system_id=lucky_draw_system.id,
+            file_obj=file_obj,
+            batch_size=batch_size,
+            organization=org,
+        )
+        return Response(result, status=status.HTTP_201_CREATED)
+    except ValidationError as e:
+        err_msg = (
+            e.message
+            if hasattr(e, "message")
+            else (e.messages[0] if hasattr(e, "messages") and e.messages else str(e))
+        )
+        return Response(
+            {"error": err_msg},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    except Exception as e:
+        return Response(
+            {"error": f"Failed to upload IMEIs: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 
 @api_view(["GET"])

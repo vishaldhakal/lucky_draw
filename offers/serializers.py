@@ -216,4 +216,70 @@ class BulkDeleteLuckyDrawIMEISerializer(serializers.Serializer):
         return value
 
 
+class BulkUploadIMEISerializer(serializers.Serializer):
+    lucky_draw_system = serializers.PrimaryKeyRelatedField(
+        queryset=LuckyDrawSystem.objects.all(),
+        required=True,
+        error_messages={
+            "required": "Invalid Lucky Draw System.",
+            "does_not_exist": "Invalid Lucky Draw System.",
+            "incorrect_type": "Invalid Lucky Draw System.",
+            "null": "Invalid Lucky Draw System.",
+        },
+        help_text="Select Lucky Draw System.",
+    )
+    file = serializers.FileField(
+        required=True,
+        error_messages={
+            "required": "CSV file is required.",
+            "empty": "CSV file is required.",
+            "null": "CSV file is required.",
+        },
+        help_text="CSV file containing IMEI numbers.",
+    )
+    batch_size = serializers.IntegerField(
+        required=False,
+        default=5000,
+        min_value=500,
+        max_value=25000,
+        help_text="Batch size for bulk insertion (default: 5000).",
+    )
+
+    def to_internal_value(self, data):
+        data = data.copy() if hasattr(data, "copy") else dict(data)
+
+        # Support aliases like lucky_draw_system_id or system_id
+        if "lucky_draw_system" not in data or data["lucky_draw_system"] in ("", None):
+            if "lucky_draw_system_id" in data and data["lucky_draw_system_id"] not in ("", None):
+                data["lucky_draw_system"] = data["lucky_draw_system_id"]
+            elif "system_id" in data and data["system_id"] not in ("", None):
+                data["lucky_draw_system"] = data["system_id"]
+
+        return super().to_internal_value(data)
+
+    def validate_file(self, value):
+        if not value.name.lower().endswith(".csv"):
+            raise serializers.ValidationError("Invalid file format. Please upload a CSV file.")
+        if value.size == 0:
+            raise serializers.ValidationError("The uploaded CSV file is empty.")
+        return value
+
+    def validate_lucky_draw_system(self, value):
+        request = self.context.get("request")
+        if (
+            request
+            and hasattr(request, "user")
+            and getattr(request.user, "is_authenticated", False)
+            and hasattr(request.user, "organization")
+            and request.user.organization
+            and not getattr(request.user, "is_superuser", False)
+        ):
+            if value.organization_id != request.user.organization.id:
+                raise serializers.ValidationError(
+                    "You do not have permission to upload IMEIs for this lucky draw system."
+                )
+        return value
+
+
+
 
