@@ -9,7 +9,7 @@ from django.utils.text import slugify
 from rest_framework import generics, status
 from rest_framework.decorators import api_view, parser_classes
 from rest_framework.parsers import FormParser, MultiPartParser
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
 from .models import (
@@ -881,8 +881,13 @@ class ElectronicsShopOfferRetrieveUpdateDestroyView(
 class CustomerListCreateView(generics.ListCreateAPIView):
     serializer_class = CustomerSerializer
 
+    def get_permissions(self):
+        if self.request.method == "GET":
+            return [IsAuthenticated()]
+        return [AllowAny()]
+
     def get_queryset(self):
-        return Customer.objects.filter(
+        return Customer.objects.select_related("lucky_draw_system").filter(
             lucky_draw_system__organization=self.request.user.organization
         )
 

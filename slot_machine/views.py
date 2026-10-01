@@ -1,6 +1,7 @@
 from django.utils import timezone
 from rest_framework import generics, status
 from rest_framework.decorators import api_view
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
 from offers.models import (
@@ -35,8 +36,13 @@ def GetGifts(request):
 
 
 class SlotMachineListCreateView(generics.ListCreateAPIView):
-    queryset = Customer.objects.all()
+    queryset = Customer.objects.select_related("lucky_draw_system").all()
     serializer_class = CustomerSerializer
+
+    def get_permissions(self):
+        if self.request.method == "GET":
+            return [IsAuthenticated()]
+        return [AllowAny()]
 
     def create(self, request, *args, **kwargs):
         lucky_draw_system = request.data.get("lucky_draw_system")
