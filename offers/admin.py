@@ -4,12 +4,12 @@ from tinymce.widgets import TinyMCE
 from unfold.admin import ModelAdmin
 
 from .models import (
+    IMEINO,
     Customer,
     ElectronicOfferCondition,
     ElectronicsShopOffer,
     FixOffer,
     GiftItem,
-    IMEINO,
     LuckyDrawSystem,
     MobileOfferCondition,
     MobilePhoneOffer,
@@ -59,6 +59,7 @@ class MobilePhoneOfferAdmin(ModelAdmin):
         "end_date",
     )
     list_editable = ("offer_condition_value", "daily_quantity")
+    list_filter = ("lucky_draw_system",)
     autocomplete_fields = ["gift"]
     list_select_related = ("gift", "gift__lucky_draw_system", "lucky_draw_system")
 
@@ -130,7 +131,9 @@ class ElectronicsShopOfferAdmin(ModelAdmin):
         "end_date",
     )
     list_editable = ("offer_condition_value", "daily_quantity")
+    list_filter = ("lucky_draw_system",)
     autocomplete_fields = ["gift"]  # <--- searchable dropdown for gifts
+    list_select_related = ("lucky_draw_system",)
 
     def get_gifts(self, obj):
         # Join names of related gifts into a string
