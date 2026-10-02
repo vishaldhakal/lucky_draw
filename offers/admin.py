@@ -55,10 +55,11 @@ class MobilePhoneOfferAdmin(ModelAdmin):
         "lucky_draw_system",
         "offer_condition_value",
         "daily_quantity",
+        "priority",
         "start_date",
         "end_date",
     )
-    list_editable = ("offer_condition_value", "daily_quantity")
+    list_editable = ("offer_condition_value", "daily_quantity", "priority")
     list_filter = ("lucky_draw_system",)
     autocomplete_fields = ["gift"]
     list_select_related = ("gift", "gift__lucky_draw_system", "lucky_draw_system")
