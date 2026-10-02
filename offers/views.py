@@ -1057,32 +1057,31 @@ class CustomerListCreateView(generics.ListCreateAPIView):
                 matching_offers.append(offer)
 
         if matching_offers:
-            offers_by_condition = {}
-            for offer in matching_offers:
-                try:
-                    cv = int(offer.offer_condition_value)
-                except (ValueError, TypeError):
-                    cv = 1
-                offers_by_condition.setdefault(cv, []).append(offer)
-
             selected_gift = None
 
-            # CRITICAL FIX: Evaluate Higher Conditions (cv > 1) First
-            sorted_cvs = sorted(offers_by_condition.keys(), reverse=True)
+            # CHECK IF ANY MATCHED OFFER HAS AN EXPLICIT PRIORITY (> 0)
+            has_explicit_priority = any(
+                getattr(o, "priority", 0) > 0 for o in matching_offers
+            )
 
-            for cv in sorted_cvs:
-                if cv == 1 and selected_gift:
-                    # Skip base gift if customer already won a higher prize
-                    continue
+            if has_explicit_priority:
+                # ROUTE A: PRIORITY 1 FIRST
+                # Filter out offers with priority 0, then sort ASCENDING (1 -> 2 -> 3...)
+                priority_offers = [
+                    o for o in matching_offers if getattr(o, "priority", 0) > 0
+                ]
+                sorted_offers = sorted(
+                    priority_offers, key=lambda x: getattr(x, "priority")
+                )
 
-                valid_options = []
-                for offer in offers_by_condition[cv]:
+                for offer in sorted_offers:
                     gifts = (
                         list(offer.gift.all())
                         if hasattr(offer.gift, "all")
                         else [getattr(offer, "gift", None)]
                     )
 
+                    valid_options = []
                     for gift in gifts:
                         if not gift:
                             continue
@@ -1097,21 +1096,69 @@ class CustomerListCreateView(generics.ListCreateAPIView):
                             assigned_ratio = already_assigned / target_capacity
                             valid_options.append((gift, assigned_ratio))
 
-                if valid_options:
-                    min_ratio = min(item[1] for item in valid_options)
-                    best_candidates = [
-                        gift
-                        for gift, ratio in valid_options
-                        if ratio <= (min_ratio + 0.01)
-                    ]
-
-                    if best_candidates:
+                    if valid_options:
+                        min_ratio = min(item[1] for item in valid_options)
+                        best_candidates = [
+                            gift
+                            for gift, ratio in valid_options
+                            if ratio <= (min_ratio + 0.01)
+                        ]
                         selected_gift = random.choice(best_candidates)
-                        break  # Stop at highest priority matched gift
+                        break  # Stop immediately at Priority 1 (or lowest priority number matched)
+
+            if not selected_gift:
+                # ROUTE B: NORMAL EVALUATION (If no explicit priority matched or priority offers out of stock)
+                offers_by_cv = {}
+                for offer in matching_offers:
+                    try:
+                        cv = int(offer.offer_condition_value)
+                    except (ValueError, TypeError):
+                        cv = 1
+                    offers_by_cv.setdefault(cv, []).append(offer)
+
+                sorted_cvs = sorted(offers_by_cv.keys(), reverse=True)
+
+                for cv in sorted_cvs:
+                    valid_options = []
+                    for offer in offers_by_cv[cv]:
+                        gifts = (
+                            list(offer.gift.all())
+                            if hasattr(offer.gift, "all")
+                            else [getattr(offer, "gift", None)]
+                        )
+
+                        for gift in gifts:
+                            if not gift:
+                                continue
+
+                            already_assigned = Customer.objects.filter(
+                                date_of_purchase=today_date, gift=gift
+                            ).count()
+
+                            target_capacity = max(offer.daily_quantity, 1)
+
+                            if already_assigned < target_capacity:
+                                assigned_ratio = already_assigned / target_capacity
+                                valid_options.append((gift, assigned_ratio))
+
+                    if valid_options:
+                        min_ratio = min(item[1] for item in valid_options)
+                        best_candidates = [
+                            gift
+                            for gift, ratio in valid_options
+                            if ratio <= (min_ratio + 0.01)
+                        ]
+
+                        if best_candidates:
+                            selected_gift = random.choice(best_candidates)
+                            break
 
             if selected_gift:
                 customer.gift.set([selected_gift])
-                if "thank you" in selected_gift.name.lower():
+                if (
+                    "thank you" in selected_gift.name.lower()
+                    or "better luck" in selected_gift.name.lower()
+                ):
                     customer.prize_details = "Thank you for your purchase!"
                 else:
                     customer.prize_details = (
