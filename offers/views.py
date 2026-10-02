@@ -984,7 +984,7 @@ class CustomerListCreateView(generics.ListCreateAPIView):
         return Response(data, status=status.HTTP_201_CREATED)
 
     def assign_gift(self, customer):
-        import random  # Natively imported for controlled tie-breaking
+        import random
 
         today_date = timezone.now().date()
         lucky_draw_system = customer.lucky_draw_system
@@ -1000,6 +1000,7 @@ class CustomerListCreateView(generics.ListCreateAPIView):
 
         phone_model = customer.phone_model
 
+        # 1. FIXED OFFERS
         fixed_offer = FixOffer.objects.filter(
             lucky_draw_system=lucky_draw_system, imei_no=customer.imei, quantity__gt=0
         ).first()
@@ -1016,6 +1017,7 @@ class CustomerListCreateView(generics.ListCreateAPIView):
                 fixed_offer.save()
                 return
 
+        # 2. FETCH ACTIVE OFFERS
         mobile_offers = list(
             MobilePhoneOffer.objects.filter(
                 lucky_draw_system=lucky_draw_system,
@@ -1060,82 +1062,72 @@ class CustomerListCreateView(generics.ListCreateAPIView):
                 try:
                     cv = int(offer.offer_condition_value)
                 except (ValueError, TypeError):
-                    cv = 0
+                    cv = 1
                 offers_by_condition.setdefault(cv, []).append(offer)
 
-            assigned_gifts = []
-            assigned_categories = set()
-            highest_cv_met = max(offers_by_condition.keys())
+            selected_gift = None
 
-            for cv in sorted(offers_by_condition.keys()):
-                if cv > highest_cv_met:
+            # CRITICAL FIX: Evaluate Higher Conditions (cv > 1) First
+            sorted_cvs = sorted(offers_by_condition.keys(), reverse=True)
+
+            for cv in sorted_cvs:
+                if cv == 1 and selected_gift:
+                    # Skip base gift if customer already won a higher prize
                     continue
 
-                offers = offers_by_condition[cv]
-                offers_by_category = {}
-
-                for offer in offers:
-                    if hasattr(offer.gift, "all"):
-                        gifts = list(offer.gift.all())
-                    else:
-                        gifts = [offer.gift] if getattr(offer, "gift", None) else []
+                valid_options = []
+                for offer in offers_by_condition[cv]:
+                    gifts = (
+                        list(offer.gift.all())
+                        if hasattr(offer.gift, "all")
+                        else [getattr(offer, "gift", None)]
+                    )
 
                     for gift in gifts:
-                        if gift:
-                            offers_by_category.setdefault(gift.category, []).append((
-                                offer,
-                                gift,
-                            ))
+                        if not gift:
+                            continue
 
-                for category, gift_options in offers_by_category.items():
-                    if category in assigned_categories:
-                        continue
-
-                    valid_options = []
-                    for offer, gift in gift_options:
                         already_assigned = Customer.objects.filter(
                             date_of_purchase=today_date, gift=gift
                         ).count()
 
                         target_capacity = max(offer.daily_quantity, 1)
 
-                        if already_assigned >= target_capacity:
-                            continue
+                        if already_assigned < target_capacity:
+                            assigned_ratio = already_assigned / target_capacity
+                            valid_options.append((gift, assigned_ratio))
 
-                        assigned_ratio = already_assigned / target_capacity
-                        valid_options.append((gift, assigned_ratio))
-
-                    if not valid_options:
-                        continue
-
-                    true_lowest_ratio = min(item[1] for item in valid_options)
-                    tolerance = 0.01
-
+                if valid_options:
+                    min_ratio = min(item[1] for item in valid_options)
                     best_candidates = [
                         gift
                         for gift, ratio in valid_options
-                        if ratio <= (true_lowest_ratio + tolerance)
+                        if ratio <= (min_ratio + 0.01)
                     ]
 
                     if best_candidates:
-                        best_gift = random.choice(best_candidates)
-                        customer.gift.add(best_gift)
-                        assigned_gifts.append(best_gift)
-                        assigned_categories.add(category)
+                        selected_gift = random.choice(best_candidates)
+                        break  # Stop at highest priority matched gift
 
-            if assigned_gifts:
-                gift_names = ", ".join([gift.name for gift in assigned_gifts])
-                customer.prize_details = f"Congratulations! You've won {gift_names}"
+            if selected_gift:
+                customer.gift.set([selected_gift])
+                if "thank you" in selected_gift.name.lower():
+                    customer.prize_details = "Thank you for your purchase!"
+                else:
+                    customer.prize_details = (
+                        f"Congratulations! You've won {selected_gift.name}"
+                    )
                 customer.save()
                 return
 
+        # 3. FALLBACK FOR UNMATCHED SPINS / EXHAUSTED CAPS
         better_luck_gift = GiftItem.objects.filter(
-            lucky_draw_system=lucky_draw_system, name__icontains="better luck next time"
+            lucky_draw_system=lucky_draw_system, name__icontains="thank you"
         ).first()
 
         if better_luck_gift:
             customer.gift.set([better_luck_gift])
-            customer.prize_details = "Better luck next time!"
+            customer.prize_details = "Thank you for your purchase!"
         else:
             customer.prize_details = "Thank you for your purchase!"
 
