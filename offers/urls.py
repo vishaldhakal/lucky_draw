@@ -61,7 +61,6 @@ urlpatterns = [
         views.DeleteLuckyDrawIMEIsView.as_view(),
         name="delete-luckydraw-imeis-bulk",
     ),
-
     # FixOffer URLs
     path(
         "fix-offers/",
@@ -132,6 +131,11 @@ urlpatterns = [
         "customers/",
         views.CustomerListCreateView.as_view(),
         name="customer-list-create",
+    ),
+    path(
+        "yachu-customers/",
+        views.YachuCustomerListCreateView.as_view(),
+        name="yachu-customer-list-create",
     ),
     # Download Customer Detial
     path(
