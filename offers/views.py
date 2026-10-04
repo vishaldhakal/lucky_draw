@@ -1000,37 +1000,14 @@ class CustomerListCreateView(generics.ListCreateAPIView):
 
         phone_model = customer.phone_model
 
-        # Check restriction: if Yachu Lucky Draw (ID 3 or name contains 'Yachu Lucky Draw')
-        # and sold area is Sankhamul, Bhaktapur, or Jhamsikhel, do not award Body Lotion.
-        is_yachu_system = (
-            str(lucky_draw_system.id) == "3"
-            or "yachu" in (lucky_draw_system.name or "").lower()
-        )
-        sold_area_lower = (customer.sold_area or "").strip().lower()
-        restricted_areas = ["sankhamul", "bhaktapur", "jhamsikhel"]
-        restrict_body_lotion = is_yachu_system and any(
-            area in sold_area_lower for area in restricted_areas
-        )
-
-        def is_body_lotion(gift_obj):
-            if not gift_obj or not getattr(gift_obj, "name", None):
-                return False
-            name = gift_obj.name.lower().replace("-", " ")
-            return "body lotion" in name or "bodylotion" in name
-
         # 1. FIXED OFFERS
         fixed_offer = FixOffer.objects.filter(
             lucky_draw_system=lucky_draw_system, imei_no=customer.imei, quantity__gt=0
         ).first()
 
         if fixed_offer:
-            available_gifts = [
-                g
-                for g in fixed_offer.gift.all()
-                if not (restrict_body_lotion and is_body_lotion(g))
-            ]
-            if available_gifts:
-                selected_gift = available_gifts[0]
+            selected_gift = fixed_offer.gift.first()
+            if selected_gift:
                 customer.gift.set([selected_gift])
                 customer.prize_details = (
                     f"Congratulations! You've won {selected_gift.name}"
@@ -1071,20 +1048,12 @@ class CustomerListCreateView(generics.ListCreateAPIView):
             if self.check_offer_condition(
                 offer, sales_count, region_str
             ) and self.check_validto_condition(offer, phone_model):
-                if restrict_body_lotion and is_body_lotion(
-                    getattr(offer, "gift", None)
-                ):
-                    continue
                 matching_offers.append(offer)
 
         for offer in electronic_offers:
             if self.check_offer_condition(
                 offer, sales_count, region_str
             ) and self.check_validto_condition(offer, phone_model):
-                if restrict_body_lotion:
-                    offer_gifts = list(offer.gift.all())
-                    if offer_gifts and all(is_body_lotion(g) for g in offer_gifts):
-                        continue
                 matching_offers.append(offer)
 
         if matching_offers:
@@ -1115,9 +1084,6 @@ class CustomerListCreateView(generics.ListCreateAPIView):
                     valid_options = []
                     for gift in gifts:
                         if not gift:
-                            continue
-
-                        if restrict_body_lotion and is_body_lotion(gift):
                             continue
 
                         already_assigned = Customer.objects.filter(
@@ -1165,9 +1131,6 @@ class CustomerListCreateView(generics.ListCreateAPIView):
                             if not gift:
                                 continue
 
-                            if restrict_body_lotion and is_body_lotion(gift):
-                                continue
-
                             already_assigned = Customer.objects.filter(
                                 date_of_purchase=today_date, gift=gift
                             ).count()
@@ -1190,9 +1153,7 @@ class CustomerListCreateView(generics.ListCreateAPIView):
                             selected_gift = random.choice(best_candidates)
                             break
 
-            if selected_gift and not (
-                restrict_body_lotion and is_body_lotion(selected_gift)
-            ):
+            if selected_gift:
                 customer.gift.set([selected_gift])
                 if (
                     "thank you" in selected_gift.name.lower()
