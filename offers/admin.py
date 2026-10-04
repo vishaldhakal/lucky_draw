@@ -94,6 +94,7 @@ class CustomerAdmin(ModelAdmin):
         "sale_status",
         "region",
         "how_know_about_campaign",
+        "sold_area",
         "date_of_purchase",
     )
     list_display = (
@@ -101,16 +102,21 @@ class CustomerAdmin(ModelAdmin):
         "imei",
         "prize_details",
         "region",
+        "sold_area",
         "date_of_purchase",
     )
-    search_fields = ("customer_name", "imei", "prize_details", "region")
+    search_fields = ("customer_name", "imei", "prize_details", "region", "sold_area")
 
 
 admin.site.register(MobilePhoneOffer, MobilePhoneOfferAdmin)
 
 
 class IMEIAdmin(ModelAdmin):
-    search_fields = ("imei_no",)
+    list_display = ("imei_no", "lucky_draw_system", "used")
+    list_editable = ("used",)
+    list_filter = ("used", "lucky_draw_system")
+    search_fields = ("imei_no", "phone_model")
+    list_select_related = ("lucky_draw_system",)
 
 
 admin.site.register(IMEINO, IMEIAdmin)
