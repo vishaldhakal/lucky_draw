@@ -900,30 +900,6 @@ class CustomerListCreateView(generics.ListCreateAPIView):
         email = request.data.get("email")
         region = request.data.get("region")
 
-        imei = request.data.get("imei")
-
-        if not imei:
-            return Response(
-                {"error": "IMEI is required."}, status=status.HTTP_400_BAD_REQUEST
-            )
-
-        try:
-            imei_obj = IMEINO.objects.get(imei_no=imei, used=False)
-        except IMEINO.DoesNotExist:
-            return Response(
-                {"error": "Invalid IMEI or IMEI already used."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        imeii = IMEINO.objects.get(imei_no=imei)
-        phone_model = imeii.phone_model
-
-        if Customer.objects.filter(imei=imei).exists():
-            return Response(
-                {"error": "A customer with this IMEI already exists."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
         if not lucky_draw_system:
             return Response(
                 {"error": "Lucky draw system is required."},
@@ -941,6 +917,31 @@ class CustomerListCreateView(generics.ListCreateAPIView):
         if lucky_draw.end_date < timezone.now().date():
             return Response(
                 {"error": "Lucky draw campaign has expired."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        imei = request.data.get("imei")
+
+        if not imei:
+            return Response(
+                {"error": "IMEI is required."}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            imei_obj = IMEINO.objects.get(
+                imei_no=imei, lucky_draw_system=lucky_draw, used=False
+            )
+        except IMEINO.DoesNotExist:
+            return Response(
+                {"error": "Invalid IMEI or IMEI already used."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        phone_model = imei_obj.phone_model
+
+        if Customer.objects.filter(imei=imei).exists():
+            return Response(
+                {"error": "A customer with this IMEI already exists."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -1643,30 +1644,6 @@ class YachuCustomerListCreateView(generics.ListCreateAPIView):
         email = request.data.get("email")
         region = request.data.get("region")
 
-        imei = request.data.get("imei")
-
-        if not imei:
-            return Response(
-                {"error": "IMEI is required."}, status=status.HTTP_400_BAD_REQUEST
-            )
-
-        try:
-            imei_obj = IMEINO.objects.get(imei_no=imei, used=False)
-        except IMEINO.DoesNotExist:
-            return Response(
-                {"error": "Invalid IMEI or IMEI already used."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        imeii = IMEINO.objects.get(imei_no=imei)
-        phone_model = imeii.phone_model
-
-        if Customer.objects.filter(imei=imei).exists():
-            return Response(
-                {"error": "A customer with this IMEI already exists."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
         if not lucky_draw_system:
             return Response(
                 {"error": "Lucky draw system is required."},
@@ -1684,6 +1661,31 @@ class YachuCustomerListCreateView(generics.ListCreateAPIView):
         if lucky_draw.end_date < timezone.now().date():
             return Response(
                 {"error": "Lucky draw campaign has expired."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        imei = request.data.get("imei")
+
+        if not imei:
+            return Response(
+                {"error": "IMEI is required."}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            imei_obj = IMEINO.objects.get(
+                imei_no=imei, lucky_draw_system=lucky_draw, used=False
+            )
+        except IMEINO.DoesNotExist:
+            return Response(
+                {"error": "Invalid IMEI or IMEI already used."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        phone_model = imei_obj.phone_model
+
+        if Customer.objects.filter(imei=imei).exists():
+            return Response(
+                {"error": "A customer with this IMEI already exists."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
