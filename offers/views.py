@@ -1570,10 +1570,11 @@ def export_data(request, pk):
     elif end_date:
         cust = cust.filter(date_of_purchase__lte=end_date)
         date_str = f"to_{end_date}"
-    else:
-        if filter_param == "today":
-            cust = cust.filter(date_of_purchase=today_date)
+    elif filter_param == "today":
+        cust = cust.filter(date_of_purchase=today_date)
         date_str = f"{today_date}"
+    else:
+        date_str = "all"
 
     filename = f"{safe_name}_{date_str}.csv"
 
