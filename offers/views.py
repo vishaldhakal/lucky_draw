@@ -1528,11 +1528,6 @@ def export_data(request, pk):
     luckydraw = LuckyDrawSystem.objects.get(id=pk)
     today_date = timezone.now().date()
     safe_name = slugify(luckydraw.name) if luckydraw.name else "luckydraw"
-    filename = f"{safe_name}_{today_date}.csv"
-
-    response = HttpResponse(content_type="text/csv")
-    response["Content-Disposition"] = f'attachment; filename="{filename}"'
-    writer = csv.writer(response)
 
     cust = (
         Customer.objects
@@ -1542,25 +1537,48 @@ def export_data(request, pk):
     )
 
     filter_param = request.GET.get("filter")
-    if filter_param == "today":
-        cust = cust.filter(date_of_purchase=today_date)
-
     start_date_param = request.GET.get("start_date")
     end_date_param = request.GET.get("end_date")
+    start_date = None
+    end_date = None
 
     if start_date_param:
         try:
             start_date = datetime.datetime.strptime(start_date_param, "%Y-%m-%d").date()
-            cust = cust.filter(date_of_purchase__gte=start_date)
         except ValueError:
-            pass
+            start_date = None
 
     if end_date_param:
         try:
             end_date = datetime.datetime.strptime(end_date_param, "%Y-%m-%d").date()
-            cust = cust.filter(date_of_purchase__lte=end_date)
         except ValueError:
-            pass
+            end_date = None
+
+    if start_date and end_date:
+        if start_date == end_date:
+            cust = cust.filter(date_of_purchase=start_date)
+            date_str = f"{start_date}"
+        else:
+            cust = cust.filter(
+                date_of_purchase__gte=start_date, date_of_purchase__lte=end_date
+            )
+            date_str = f"{start_date}_to_{end_date}"
+    elif start_date:
+        cust = cust.filter(date_of_purchase=start_date)
+        date_str = f"{start_date}"
+    elif end_date:
+        cust = cust.filter(date_of_purchase__lte=end_date)
+        date_str = f"to_{end_date}"
+    else:
+        if filter_param == "today":
+            cust = cust.filter(date_of_purchase=today_date)
+        date_str = f"{today_date}"
+
+    filename = f"{safe_name}_{date_str}.csv"
+
+    response = HttpResponse(content_type="text/csv")
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    writer = csv.writer(response)
 
     columns_def = [
         ("Date of Purchase", lambda c, g: c.date_of_purchase),
