@@ -153,6 +153,11 @@ urlpatterns = [
     ),
     # Upload IMEINo
     path("upload-imeino/", views.UploadImeiBulk, name="upload-imeino"),
+    path(
+        "upload-fix-offer/",
+        views.UploadFixOfferBulkView.as_view(),
+        name="upload-fix-offer",
+    ),
     path("export-data/<int:pk>/", views.export_data, name="export-exportdata"),
     path("export-imei/", views.export_imei, name="export-imei"),
 ]

@@ -42,8 +42,10 @@ from .serializers import (
     MobilePhoneOfferSerializer,
     RechargeCardOfferSerializer,
     RechargeCardSerializer,
+    UploadFixOfferFileSerializer,
 )
-from .services.imei_service import (
+from .services import (
+    bulk_create_fix_offers_from_file,
     bulk_upload_imeis_from_csv,
     delete_imeis_for_lucky_draw_system,
 )
@@ -484,6 +486,84 @@ class FixOfferRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
         instance = self.get_object()
         instance.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class UploadFixOfferBulkView(generics.GenericAPIView):
+    """
+    API endpoint to bulk upload IMEI numbers from a CSV or Excel (.xlsx, .xls) file,
+    select a gift, and create/update FixOffer records for that Lucky Draw System.
+    """
+
+    serializer_class = UploadFixOfferFileSerializer
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request, *args, **kwargs):
+        payload = (
+            request.data.copy() if hasattr(request.data, "copy") else dict(request.data)
+        )
+        if "file" not in payload and "file" in request.FILES:
+            payload["file"] = request.FILES["file"]
+
+        serializer = self.get_serializer(data=payload)
+        if not serializer.is_valid():
+            first_field = next(iter(serializer.errors))
+            first_err = serializer.errors[first_field]
+            err_msg = (
+                first_err[0]
+                if isinstance(first_err, list) and first_err
+                else str(first_err)
+            )
+            return Response(
+                {"error": err_msg, "details": serializer.errors},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        validated_data = serializer.validated_data
+        lucky_draw_system = validated_data["lucky_draw_system"]
+        selected_gifts = validated_data["selected_gifts"]
+        file_obj = validated_data["file"]
+        quantity = validated_data.get("quantity", 1)
+        replace_existing = validated_data.get("replace_existing", True)
+        batch_size = validated_data.get("batch_size", 2000)
+
+        org = None
+        if (
+            hasattr(request, "user")
+            and getattr(request.user, "is_authenticated", False)
+            and hasattr(request.user, "organization")
+            and request.user.organization
+            and not getattr(request.user, "is_superuser", False)
+        ):
+            org = request.user.organization
+
+        try:
+            result = bulk_create_fix_offers_from_file(
+                lucky_draw_system_id=lucky_draw_system.id,
+                file_obj=file_obj,
+                gift_ids=[g.id for g in selected_gifts],
+                quantity=quantity,
+                organization=org,
+                replace_existing=replace_existing,
+                batch_size=batch_size,
+            )
+            return Response(result, status=status.HTTP_201_CREATED)
+        except ValidationError as e:
+            err_msg = (
+                e.message
+                if hasattr(e, "message")
+                else (
+                    e.messages[0] if hasattr(e, "messages") and e.messages else str(e)
+                )
+            )
+            return Response(
+                {"error": err_msg},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except Exception as e:
+            return Response(
+                {"error": f"Failed to upload fix offers: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
 
 class MobileOfferConditionListCreateView(generics.ListCreateAPIView):
