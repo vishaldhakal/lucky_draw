@@ -137,6 +137,11 @@ urlpatterns = [
         views.YachuCustomerListCreateView.as_view(),
         name="yachu-customer-list-create",
     ),
+    path(
+        "infinix-customers/",
+        views.InfinixCustomerListCreateView.as_view(),
+        name="infinix-customer-list-create",
+    ),
     # Download Customer Detial
     path(
         "download-customer-details/",
@@ -153,6 +158,11 @@ urlpatterns = [
     ),
     # Upload IMEINo
     path("upload-imeino/", views.UploadImeiBulk, name="upload-imeino"),
+    path(
+        "upload-imei-with-region/",
+        views.UploadImeiWithRegionBulkView.as_view(),
+        name="upload-imei-with-region",
+    ),
     path(
         "upload-fix-offer/",
         views.UploadFixOfferBulkView.as_view(),

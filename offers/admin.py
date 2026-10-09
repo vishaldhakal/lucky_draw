@@ -56,6 +56,7 @@ class MobilePhoneOfferAdmin(ModelAdmin):
         "offer_condition_value",
         "daily_quantity",
         "priority",
+        "target_regions",
         "start_date",
         "end_date",
     )
@@ -82,6 +83,7 @@ class MobilePhoneOfferAdmin(ModelAdmin):
                     "end_time",
                     "has_time_limit",
                     "has_region_limit",
+                    "target_regions",
                 )
             },
         ),
@@ -112,10 +114,10 @@ admin.site.register(MobilePhoneOffer, MobilePhoneOfferAdmin)
 
 
 class IMEIAdmin(ModelAdmin):
-    list_display = ("imei_no", "lucky_draw_system", "used")
+    list_display = ("imei_no", "phone_model", "region", "lucky_draw_system", "used")
     list_editable = ("used",)
-    list_filter = ("used", "lucky_draw_system")
-    search_fields = ("imei_no", "phone_model")
+    list_filter = ("used", "lucky_draw_system", "region")
+    search_fields = ("imei_no", "phone_model", "region")
     list_select_related = ("lucky_draw_system",)
 
 
@@ -134,6 +136,7 @@ class ElectronicsShopOfferAdmin(ModelAdmin):
         "lucky_draw_system",
         "offer_condition_value",
         "daily_quantity",
+        "target_regions",
         "start_date",
         "end_date",
     )

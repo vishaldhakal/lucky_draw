@@ -98,6 +98,7 @@ class IMEINO(models.Model):
     )
     imei_no = models.CharField(max_length=400, unique=True)
     phone_model = models.CharField(max_length=400, blank=True)
+    region = models.CharField(max_length=400, null=True, blank=True)
     used = models.BooleanField(default=False)
 
     def __str__(self):
@@ -135,9 +136,20 @@ class BaseOffer(models.Model):
     offer_condition_value = models.CharField(max_length=500, blank=True)
     sale_numbers = models.JSONField(null=True, blank=True)
     has_region_limit = models.BooleanField(default=False)
+    target_regions = models.CharField(
+        max_length=500,
+        blank=True,
+        null=True,
+        help_text="Comma-separated regions (e.g. 'Kathmandu, Pokhara'). Leave blank for all regions.",
+    )
 
     class Meta:
         abstract = True
+
+    def get_target_regions_list(self):
+        if not self.target_regions:
+            return []
+        return [r.strip() for r in self.target_regions.split(",") if r.strip()]
 
     def is_valid_date(self):
         return self.start_date <= timezone.now().date() <= self.end_date

@@ -73,7 +73,14 @@ class RechargeCardSerializer(serializers.ModelSerializer):
 class IMEINOSerializer(serializers.ModelSerializer):
     class Meta:
         model = IMEINO
-        fields = ["lucky_draw_system", "imei_no", "phone_model"]
+        fields = [
+            "id",
+            "lucky_draw_system",
+            "imei_no",
+            "phone_model",
+            "region",
+            "used",
+        ]
 
 
 class FixOfferSerializer(serializers.ModelSerializer):
@@ -281,6 +288,81 @@ class BulkUploadIMEISerializer(serializers.Serializer):
                     "You do not have permission to upload IMEIs for this lucky draw system."
                 )
         return value
+
+
+class BulkUploadIMEIWithRegionSerializer(serializers.Serializer):
+    lucky_draw_system = serializers.PrimaryKeyRelatedField(
+        queryset=LuckyDrawSystem.objects.all(),
+        required=True,
+        error_messages={
+            "required": "Invalid Lucky Draw System.",
+            "does_not_exist": "Invalid Lucky Draw System.",
+            "incorrect_type": "Invalid Lucky Draw System.",
+            "null": "Invalid Lucky Draw System.",
+        },
+        help_text="Select Lucky Draw System.",
+    )
+    file = serializers.FileField(
+        required=True,
+        error_messages={
+            "required": "File is required.",
+            "empty": "The uploaded file is empty.",
+            "null": "File is required.",
+        },
+        help_text="CSV or Excel file (.csv, .xlsx, .xls) containing columns: IMEI, Model Name, Region.",
+    )
+    batch_size = serializers.IntegerField(
+        required=False,
+        default=5000,
+        min_value=500,
+        max_value=25000,
+        help_text="Batch size for bulk insertion (default: 5000).",
+    )
+    update_existing = serializers.BooleanField(
+        required=False,
+        default=False,
+        help_text="If True, updates phone_model and region for existing IMEI numbers. Default is False.",
+    )
+
+    def to_internal_value(self, data):
+        data = data.copy() if hasattr(data, "copy") else dict(data)
+
+        # Support aliases like lucky_draw_system_id or system_id
+        if "lucky_draw_system" not in data or data["lucky_draw_system"] in ("", None):
+            if "lucky_draw_system_id" in data and data["lucky_draw_system_id"] not in ("", None):
+                data["lucky_draw_system"] = data["lucky_draw_system_id"]
+            elif "system_id" in data and data["system_id"] not in ("", None):
+                data["lucky_draw_system"] = data["system_id"]
+
+        return super().to_internal_value(data)
+
+    def validate_file(self, value):
+        valid_extensions = (".csv", ".xlsx", ".xls", ".tsv", ".txt")
+        file_name = getattr(value, "name", "").lower()
+        if not file_name.endswith(valid_extensions):
+            raise serializers.ValidationError(
+                "Invalid file format. Please upload a CSV (.csv) or Excel (.xlsx, .xls) file."
+            )
+        if value.size == 0:
+            raise serializers.ValidationError("The uploaded file is empty.")
+        return value
+
+    def validate_lucky_draw_system(self, value):
+        request = self.context.get("request")
+        if (
+            request
+            and hasattr(request, "user")
+            and getattr(request.user, "is_authenticated", False)
+            and hasattr(request.user, "organization")
+            and request.user.organization
+            and not getattr(request.user, "is_superuser", False)
+        ):
+            if value.organization_id != request.user.organization.id:
+                raise serializers.ValidationError(
+                    "You do not have permission to upload IMEIs for this lucky draw system."
+                )
+        return value
+
 
 
 class UploadFixOfferFileSerializer(serializers.Serializer):

@@ -29,6 +29,7 @@ from .models import (
 from .serializers import (
     BulkDeleteLuckyDrawIMEISerializer,
     BulkUploadIMEISerializer,
+    BulkUploadIMEIWithRegionSerializer,
     CustomerGiftSerializer,
     CustomerSerializer,
     ElectronicShopOfferConditionSerializer,
@@ -47,6 +48,7 @@ from .serializers import (
 from .services import (
     bulk_create_fix_offers_from_file,
     bulk_upload_imeis_from_csv,
+    bulk_upload_imeis_with_region_from_file,
     delete_imeis_for_lucky_draw_system,
 )
 
@@ -322,20 +324,24 @@ class IMEINOListCreateView(generics.ListCreateAPIView):
     def get_queryset(self):
         return IMEINO.objects.filter(
             lucky_draw_system__organization=self.request.user.organization
-        )
+        ).select_related("lucky_draw_system")
 
     def create(self, request, *args, **kwargs):
         lucky_draw_system = request.data.get("lucky_draw_system")
         imei_no = request.data.get("imei_no")
         phone_model = request.data.get("phone_model")
+        region = request.data.get("region")
         lucky_draw = LuckyDrawSystem.objects.get(id=lucky_draw_system)
 
         imeino = IMEINO.objects.create(
-            lucky_draw_system=lucky_draw, imei_no=imei_no, phone_model=phone_model
+            lucky_draw_system=lucky_draw,
+            imei_no=imei_no,
+            phone_model=phone_model,
+            region=region,
         )
         imeino.save()
         serializer = IMEINOSerializer(imeino)
-        return Response(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
 class IMEINORetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
@@ -345,13 +351,14 @@ class IMEINORetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     def get_queryset(self):
         return IMEINO.objects.filter(
             lucky_draw_system__organization=self.request.user.organization
-        )
+        ).select_related("lucky_draw_system")
 
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
         lucky_draw_system = request.data.get("lucky_draw_system")
         imei_no = request.data.get("imei_no")
         phone_model = request.data.get("phone_model")
+        region = request.data.get("region")
 
         if lucky_draw_system is not None:
             lucky_draw = LuckyDrawSystem.objects.get(id=lucky_draw_system)
@@ -360,6 +367,8 @@ class IMEINORetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
             instance.imei_no = imei_no
         if phone_model is not None:
             instance.phone_model = phone_model
+        if region is not None:
+            instance.region = region
 
         instance.save()
         serializer = self.get_serializer(instance)
@@ -639,6 +648,8 @@ class MobilePhoneOfferListCreateView(generics.ListCreateAPIView):
         sale_numbers = data.get("sale_numbers")
         gift_id = data.get("gift")
         priority = data.get("priority")
+        has_region_limit = data.get("has_region_limit", False)
+        target_regions = data.get("target_regions")
 
         lucky_draw_system = LuckyDrawSystem.objects.get(id=lucky_draw_system_id)
         gift = GiftItem.objects.get(id=gift_id)
@@ -653,6 +664,8 @@ class MobilePhoneOfferListCreateView(generics.ListCreateAPIView):
             sale_numbers=sale_numbers,
             gift=gift,
             priority=priority,
+            has_region_limit=has_region_limit,
+            target_regions=target_regions,
         )
 
         valid_conditions = data.get("valid_condition", [])
@@ -1270,6 +1283,20 @@ class CustomerListCreateView(generics.ListCreateAPIView):
         else:
             selected_gift = getattr(offer, "gift", None)
 
+        # 1. Target region exclusivity check
+        target_regions_str = getattr(offer, "target_regions", None)
+        if target_regions_str:
+            allowed_regions = [
+                r.strip().lower() for r in target_regions_str.split(",") if r.strip()
+            ]
+            if (
+                not region
+                or region in ("None", "Other")
+                or region.strip().lower() not in allowed_regions
+            ):
+                return False
+
+        # 2. Region balancing check
         if offer.has_region_limit:
             if region == "None" or region == "Other":
                 return False
@@ -1313,20 +1340,508 @@ class CustomerListCreateView(generics.ListCreateAPIView):
             except (ValueError, TypeError):
                 cond_val = 1
 
-            modulo_res = (sales_count % cond_val) if cond_val > 0 else 0
-            is_modulo_match = modulo_res == 0
-            is_qty_valid = todayscount < offer.daily_quantity
+            # Cumulative unlocked gifts based on intervals reached so far today.
+            # If an earlier interval was reached by an ineligible customer (e.g. from another region),
+            # the prize remains unawarded and rolls over to the next eligible customer.
+            intervals_reached = (sales_count // cond_val) if cond_val > 0 else 0
+            target_capacity = (
+                offer.daily_quantity if offer.daily_quantity > 0 else intervals_reached
+            )
+            max_allowed = min(intervals_reached, target_capacity)
 
-            return is_modulo_match and is_qty_valid
+            return todayscount < max_allowed
 
         elif offer.type_of_offer == "At certain sale position":
+            todayscount = 0
+            if selected_gift:
+                todayscount = Customer.objects.filter(
+                    date_of_purchase=today_date, gift=selected_gift
+                ).count()
+
             sale_nums = offer.sale_numbers or []
-            is_match = (
-                (str(sales_count) in sale_nums)
-                or (sales_count in sale_nums)
-                or (str(sales_count) in [str(x) for x in sale_nums])
+            parsed_positions = []
+            for num in sale_nums:
+                try:
+                    parsed_positions.append(int(num))
+                except (ValueError, TypeError):
+                    continue
+
+            # Count how many milestone positions have unlocked at or before the current sales count.
+            # If a position hit an ineligible customer, it remains unclaimed until the next eligible customer.
+            positions_unlocked = sum(1 for p in parsed_positions if p <= sales_count)
+            target_capacity = (
+                offer.daily_quantity
+                if offer.daily_quantity > 0
+                else len(parsed_positions)
             )
-            return is_match
+            max_allowed = min(positions_unlocked, target_capacity)
+
+            return todayscount < max_allowed
+
+        return False
+
+    def check_validto_condition(self, offer, phone_model):
+        if not offer.valid_condition.exists():
+            return True
+
+        if not phone_model:
+            return False
+
+        phone_model_str = str(phone_model).strip()
+        for condition in offer.valid_condition.all():
+            cond_str = str(condition.condition).strip()
+            if (
+                phone_model_str.lower().startswith(cond_str.lower())
+                or cond_str.lower() in phone_model_str.lower()
+            ):
+                return True
+
+        return False
+
+
+class InfinixCustomerListCreateView(generics.ListCreateAPIView):
+    serializer_class = CustomerSerializer
+
+    def get_permissions(self):
+        if self.request.method == "GET":
+            return [IsAuthenticated()]
+        return [AllowAny()]
+
+    def get_queryset(self):
+        return Customer.objects.select_related("lucky_draw_system").filter(
+            lucky_draw_system__organization=self.request.user.organization
+        )
+
+    def create(self, request, *args, **kwargs):
+        lucky_draw_system = request.data.get("lucky_draw_system")
+        customer_name = request.data.get("customer_name")
+        shop_name = request.data.get("shop_name")
+        sold_area = request.data.get("sold_area")
+        phone_number = request.data.get("phone_number")
+        email = request.data.get("email")
+
+        if not lucky_draw_system:
+            return Response(
+                {"error": "Lucky draw system is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            lucky_draw = LuckyDrawSystem.objects.get(id=lucky_draw_system)
+        except (LuckyDrawSystem.DoesNotExist, ValueError):
+            return Response(
+                {"error": "Invalid Lucky Draw System."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if lucky_draw.end_date < timezone.now().date():
+            return Response(
+                {"error": "Lucky draw campaign has expired."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        imei = request.data.get("imei")
+
+        if not imei:
+            return Response(
+                {"error": "IMEI is required."}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            imei_obj = IMEINO.objects.get(
+                imei_no=imei, lucky_draw_system=lucky_draw, used=False
+            )
+        except IMEINO.DoesNotExist:
+            return Response(
+                {"error": "Invalid IMEI or IMEI already used."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        phone_model = imei_obj.phone_model
+
+        # Get region directly from IMEI number record
+        region = (
+            imei_obj.region.strip()
+            if imei_obj.region and imei_obj.region.strip() not in ("None", "")
+            else request.data.get("region")
+        )
+
+        if Customer.objects.filter(imei=imei).exists():
+            return Response(
+                {"error": "A customer with this IMEI already exists."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        how_know_about_campaign = request.data.get("how_know_about_campaign")
+        profession = request.data.get("profession")
+
+        imei_obj.used = True
+        imei_obj.save()
+
+        customer = Customer.objects.create(
+            lucky_draw_system=lucky_draw,
+            customer_name=customer_name,
+            shop_name=shop_name,
+            sold_area=sold_area,
+            phone_number=phone_number,
+            email=email,
+            phone_model=phone_model,
+            imei=imei,
+            how_know_about_campaign=how_know_about_campaign,
+            profession=profession,
+            region=region if region else "None",
+        )
+
+        if region:
+            customer.region = region
+
+        self.assign_gift(customer)
+
+        serializer = CustomerGiftSerializer(customer)
+        data = serializer.data
+        gift_data = data.get("gift")
+        if isinstance(gift_data, dict):
+            image = gift_data.get("image")
+            if image:
+                gift_data["image"] = request.build_absolute_uri(image)
+        elif isinstance(gift_data, list) and gift_data:
+            image = (
+                gift_data[0].get("image") if isinstance(gift_data[0], dict) else None
+            )
+            if image:
+                gift_data[0]["image"] = request.build_absolute_uri(image)
+        return Response(data, status=status.HTTP_201_CREATED)
+
+    def assign_gift(self, customer):
+        import random
+
+        today_date = timezone.now().date()
+        lucky_draw_system = customer.lucky_draw_system
+
+        sales_today, _ = Sales.objects.get_or_create(
+            date=today_date,
+            lucky_draw_system=lucky_draw_system,
+            defaults={"sales_count": 0},
+        )
+        sales_today.sales_count += 1
+        sales_today.save()
+        sales_count = sales_today.sales_count
+
+        phone_model = customer.phone_model
+
+        # 1. FIXED OFFERS
+        fixed_offer = FixOffer.objects.filter(
+            lucky_draw_system=lucky_draw_system, imei_no=customer.imei, quantity__gt=0
+        ).first()
+
+        if fixed_offer:
+            selected_gift = fixed_offer.gift.first()
+            if selected_gift:
+                customer.gift.set([selected_gift])
+                customer.prize_details = (
+                    f"Congratulations! You've won {selected_gift.name}"
+                )
+                customer.save()
+                fixed_offer.quantity -= 1
+                fixed_offer.save()
+                return
+
+        # 2. FETCH ACTIVE OFFERS
+        mobile_offers = list(
+            MobilePhoneOffer.objects.filter(
+                lucky_draw_system=lucky_draw_system,
+                start_date__lte=today_date,
+                end_date__gte=today_date,
+                daily_quantity__gt=0,
+            )
+        )
+
+        electronic_offers = list(
+            ElectronicsShopOffer.objects.filter(
+                lucky_draw_system=lucky_draw_system,
+                start_date__lte=today_date,
+                end_date__gte=today_date,
+                daily_quantity__gt=0,
+            )
+        )
+
+        region_str = (
+            customer.region
+            if (customer.region and customer.region != "None")
+            else "Other"
+        )
+
+        matching_offers = []
+
+        for offer in mobile_offers:
+            if self.check_offer_condition(
+                offer, sales_count, region_str
+            ) and self.check_validto_condition(offer, phone_model):
+                matching_offers.append(offer)
+
+        for offer in electronic_offers:
+            if self.check_offer_condition(
+                offer, sales_count, region_str
+            ) and self.check_validto_condition(offer, phone_model):
+                matching_offers.append(offer)
+
+        if matching_offers:
+            selected_gift = None
+
+            # CHECK IF ANY MATCHED OFFER HAS AN EXPLICIT PRIORITY (> 0)
+            has_explicit_priority = any(
+                getattr(o, "priority", 0) > 0 for o in matching_offers
+            )
+
+            if has_explicit_priority:
+                # ROUTE A: PRIORITY 1 FIRST
+                # Filter out offers with priority 0, then sort ASCENDING (1 -> 2 -> 3...)
+                priority_offers = [
+                    o for o in matching_offers if getattr(o, "priority", 0) > 0
+                ]
+                sorted_offers = sorted(
+                    priority_offers, key=lambda x: getattr(x, "priority")
+                )
+
+                for offer in sorted_offers:
+                    gifts = (
+                        list(offer.gift.all())
+                        if hasattr(offer.gift, "all")
+                        else [getattr(offer, "gift", None)]
+                    )
+
+                    valid_options = []
+                    for gift in gifts:
+                        if not gift:
+                            continue
+
+                        already_assigned = Customer.objects.filter(
+                            date_of_purchase=today_date, gift=gift
+                        ).count()
+
+                        target_capacity = max(offer.daily_quantity, 1)
+
+                        if already_assigned < target_capacity:
+                            assigned_ratio = already_assigned / target_capacity
+                            valid_options.append((gift, assigned_ratio))
+
+                    if valid_options:
+                        min_ratio = min(item[1] for item in valid_options)
+                        best_candidates = [
+                            gift
+                            for gift, ratio in valid_options
+                            if ratio <= (min_ratio + 0.01)
+                        ]
+                        selected_gift = random.choice(best_candidates)
+                        break  # Stop immediately at Priority 1 (or lowest priority number matched)
+
+            if not selected_gift:
+                # ROUTE B: NORMAL EVALUATION (If no explicit priority matched or priority offers out of stock)
+                offers_by_cv = {}
+                for offer in matching_offers:
+                    try:
+                        cv = int(offer.offer_condition_value)
+                    except (ValueError, TypeError):
+                        cv = 1
+                    offers_by_cv.setdefault(cv, []).append(offer)
+
+                sorted_cvs = sorted(offers_by_cv.keys(), reverse=True)
+
+                for cv in sorted_cvs:
+                    valid_options = []
+                    for offer in offers_by_cv[cv]:
+                        gifts = (
+                            list(offer.gift.all())
+                            if hasattr(offer.gift, "all")
+                            else [getattr(offer, "gift", None)]
+                        )
+
+                        for gift in gifts:
+                            if not gift:
+                                continue
+
+                            already_assigned = Customer.objects.filter(
+                                date_of_purchase=today_date, gift=gift
+                            ).count()
+
+                            target_capacity = max(offer.daily_quantity, 1)
+
+                            if already_assigned < target_capacity:
+                                assigned_ratio = already_assigned / target_capacity
+                                valid_options.append((gift, assigned_ratio))
+
+                    if valid_options:
+                        min_ratio = min(item[1] for item in valid_options)
+                        best_candidates = [
+                            gift
+                            for gift, ratio in valid_options
+                            if ratio <= (min_ratio + 0.01)
+                        ]
+
+                        if best_candidates:
+                            selected_gift = random.choice(best_candidates)
+                            break
+
+            if selected_gift:
+                customer.gift.set([selected_gift])
+                if (
+                    "thank you" in selected_gift.name.lower()
+                    or "better luck" in selected_gift.name.lower()
+                ):
+                    customer.prize_details = "Thank you for your purchase!"
+                else:
+                    customer.prize_details = (
+                        f"Congratulations! You've won {selected_gift.name}"
+                    )
+                customer.save()
+                return
+
+        # 3. FALLBACK FOR UNMATCHED SPINS / EXHAUSTED CAPS
+        better_luck_gift = GiftItem.objects.filter(
+            lucky_draw_system=lucky_draw_system, name__icontains="thank you"
+        ).first()
+
+        if better_luck_gift:
+            customer.gift.set([better_luck_gift])
+            customer.prize_details = "Thank you for your purchase!"
+        else:
+            customer.prize_details = "Thank you for your purchase!"
+
+        customer.save()
+
+    def check_offer_condition(self, offer, sales_count, region):
+        today_date = timezone.now().date()
+        today_time = timezone.now().time()
+
+        if hasattr(offer, "gift") and hasattr(offer.gift, "all"):
+            selected_gift = offer.gift.first()
+        else:
+            selected_gift = getattr(offer, "gift", None)
+
+        # 1. Target region exclusivity check
+        target_regions_str = getattr(offer, "target_regions", None)
+        allowed_regions = []
+        if target_regions_str:
+            allowed_regions = [
+                r.strip().lower() for r in target_regions_str.split(",") if r.strip()
+            ]
+            if (
+                not region
+                or region in ("None", "Other")
+                or region.strip().lower() not in allowed_regions
+            ):
+                return False
+
+        # 2. Dynamic region balancing check
+        if offer.has_region_limit:
+            if not region or region in ("None", "Other"):
+                return False
+            if not selected_gift:
+                return False
+
+            lucky_draw_system = offer.lucky_draw_system
+
+            # Dynamic list of active regions from IMEINO and Customer for this lucky draw system
+            imei_regions = set(
+                IMEINO.objects
+                .filter(lucky_draw_system=lucky_draw_system)
+                .exclude(region__isnull=True)
+                .exclude(region__in=["", "None", "Other"])
+                .values_list("region", flat=True)
+                .distinct()
+            )
+            customer_regions = set(
+                Customer.objects
+                .filter(lucky_draw_system=lucky_draw_system)
+                .exclude(region__isnull=True)
+                .exclude(region__in=["", "None", "Other"])
+                .values_list("region", flat=True)
+                .distinct()
+            )
+            all_regions = list(imei_regions | customer_regions)
+
+            if allowed_regions:
+                all_regions = [
+                    r for r in all_regions if r.strip().lower() in allowed_regions
+                ]
+
+            if region not in all_regions:
+                all_regions.append(region)
+
+            if all_regions:
+                daily_counts_qs = (
+                    Customer.objects
+                    .filter(
+                        lucky_draw_system=lucky_draw_system,
+                        gift=selected_gift,
+                        date_of_purchase=today_date,
+                        region__in=all_regions,
+                    )
+                    .values("region")
+                    .annotate(total=Count("id"))
+                )
+                counts_by_region = {
+                    item["region"]: item["total"] for item in daily_counts_qs
+                }
+                region_counts = {r: counts_by_region.get(r, 0) for r in all_regions}
+
+                min_count = min(region_counts.values())
+                if region_counts.get(region, 0) > min_count:
+                    return False
+
+        if offer.has_time_limit:
+            if today_time < offer.start_time or today_time > offer.end_time:
+                return False
+
+        if offer.type_of_offer == "After every certain sale":
+            todayscount = 0
+            if selected_gift:
+                todayscount = Customer.objects.filter(
+                    date_of_purchase=today_date, gift=selected_gift
+                ).count()
+
+            try:
+                cond_val = int(offer.offer_condition_value)
+            except (ValueError, TypeError):
+                cond_val = 1
+
+            # Cumulative unlocked gifts based on intervals reached so far today.
+            # If an earlier interval was reached by an ineligible customer (e.g. from another region),
+            # the prize remains unawarded and rolls over to the next eligible customer.
+            intervals_reached = (sales_count // cond_val) if cond_val > 0 else 0
+            target_capacity = (
+                offer.daily_quantity if offer.daily_quantity > 0 else intervals_reached
+            )
+            max_allowed = min(intervals_reached, target_capacity)
+
+            return todayscount < max_allowed
+
+        elif offer.type_of_offer == "At certain sale position":
+            todayscount = 0
+            if selected_gift:
+                todayscount = Customer.objects.filter(
+                    date_of_purchase=today_date, gift=selected_gift
+                ).count()
+
+            sale_nums = offer.sale_numbers or []
+            parsed_positions = []
+            for num in sale_nums:
+                try:
+                    parsed_positions.append(int(num))
+                except (ValueError, TypeError):
+                    continue
+
+            # Count how many milestone positions have unlocked at or before the current sales count.
+            # If a position hit an ineligible customer, it remains unclaimed until the next eligible customer.
+            positions_unlocked = sum(1 for p in parsed_positions if p <= sales_count)
+            target_capacity = (
+                offer.daily_quantity
+                if offer.daily_quantity > 0
+                else len(parsed_positions)
+            )
+            max_allowed = min(positions_unlocked, target_capacity)
+
+            return todayscount < max_allowed
 
         return False
 
@@ -1505,6 +2020,86 @@ def UploadImeiBulk(request):
         )
 
 
+class UploadImeiWithRegionBulkView(generics.GenericAPIView):
+    """
+    Bulk upload IMEI numbers with region from a CSV, TSV, or Excel (.xlsx, .xls) file.
+    Expected columns:
+      - 1st Column: IMEI (imei_no)
+      - 2nd Column: Model Name (phone_model)
+      - 3rd Column: Region (region)
+    """
+
+    serializer_class = BulkUploadIMEIWithRegionSerializer
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request, *args, **kwargs):
+        payload = (
+            request.data.copy() if hasattr(request.data, "copy") else dict(request.data)
+        )
+        if "file" not in payload and "file" in request.FILES:
+            payload["file"] = request.FILES["file"]
+
+        serializer = self.get_serializer(data=payload, context={"request": request})
+        if not serializer.is_valid():
+            first_field = next(iter(serializer.errors))
+            first_err = serializer.errors[first_field]
+            err_msg = (
+                first_err[0]
+                if isinstance(first_err, list) and first_err
+                else str(first_err)
+            )
+            return Response(
+                {"error": err_msg, "details": serializer.errors},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        validated_data = serializer.validated_data
+        lucky_draw_system = validated_data["lucky_draw_system"]
+        file_obj = validated_data["file"]
+        batch_size = validated_data.get("batch_size", 5000)
+        update_existing = validated_data.get("update_existing", False)
+
+        org = None
+        if (
+            hasattr(request, "user")
+            and getattr(request.user, "is_authenticated", False)
+            and hasattr(request.user, "organization")
+            and request.user.organization
+            and not getattr(request.user, "is_superuser", False)
+        ):
+            org = request.user.organization
+
+        try:
+            result = bulk_upload_imeis_with_region_from_file(
+                lucky_draw_system_id=lucky_draw_system.id,
+                file_obj=file_obj,
+                batch_size=batch_size,
+                update_existing=update_existing,
+                organization=org,
+            )
+            return Response(result, status=status.HTTP_201_CREATED)
+        except ValidationError as e:
+            err_msg = (
+                e.message
+                if hasattr(e, "message")
+                else (
+                    e.messages[0] if hasattr(e, "messages") and e.messages else str(e)
+                )
+            )
+            return Response(
+                {"error": err_msg},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except Exception as e:
+            return Response(
+                {"error": f"Failed to upload IMEIs with region: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+UploadImeiWithRegionBulk = UploadImeiWithRegionBulkView.as_view()
+
+
 @api_view(["GET"])
 def export_imei(request):
     if request.method == "GET":
@@ -1518,9 +2113,9 @@ def export_imei(request):
         response = HttpResponse(content_type="text/csv")
         response["Content-Disposition"] = 'attachment; filename="imei.csv"'
         writer = csv.writer(response)
-        writer.writerow(["IMEI", "Phone Model"])
+        writer.writerow(["IMEI", "Phone Model", "Region"])
         for imei in queryset:
-            writer.writerow([imei.imei_no, imei.phone_model])
+            writer.writerow([imei.imei_no, imei.phone_model, imei.region or ""])
         return response
     return Response(
         {"error": "Invalid request method. Please use POST method."},
@@ -2054,6 +2649,20 @@ class YachuCustomerListCreateView(generics.ListCreateAPIView):
         else:
             selected_gift = getattr(offer, "gift", None)
 
+        # 1. Target region exclusivity check
+        target_regions_str = getattr(offer, "target_regions", None)
+        if target_regions_str:
+            allowed_regions = [
+                r.strip().lower() for r in target_regions_str.split(",") if r.strip()
+            ]
+            if (
+                not region
+                or region in ("None", "Other")
+                or region.strip().lower() not in allowed_regions
+            ):
+                return False
+
+        # 2. Region balancing check
         if offer.has_region_limit:
             if region == "None" or region == "Other":
                 return False
@@ -2097,20 +2706,43 @@ class YachuCustomerListCreateView(generics.ListCreateAPIView):
             except (ValueError, TypeError):
                 cond_val = 1
 
-            modulo_res = (sales_count % cond_val) if cond_val > 0 else 0
-            is_modulo_match = modulo_res == 0
-            is_qty_valid = todayscount < offer.daily_quantity
+            # Cumulative unlocked gifts based on intervals reached so far today.
+            # If an earlier interval was reached by an ineligible customer (e.g. from another region),
+            # the prize remains unawarded and rolls over to the next eligible customer.
+            intervals_reached = (sales_count // cond_val) if cond_val > 0 else 0
+            target_capacity = (
+                offer.daily_quantity if offer.daily_quantity > 0 else intervals_reached
+            )
+            max_allowed = min(intervals_reached, target_capacity)
 
-            return is_modulo_match and is_qty_valid
+            return todayscount < max_allowed
 
         elif offer.type_of_offer == "At certain sale position":
+            todayscount = 0
+            if selected_gift:
+                todayscount = Customer.objects.filter(
+                    date_of_purchase=today_date, gift=selected_gift
+                ).count()
+
             sale_nums = offer.sale_numbers or []
-            is_match = (
-                (str(sales_count) in sale_nums)
-                or (sales_count in sale_nums)
-                or (str(sales_count) in [str(x) for x in sale_nums])
+            parsed_positions = []
+            for num in sale_nums:
+                try:
+                    parsed_positions.append(int(num))
+                except (ValueError, TypeError):
+                    continue
+
+            # Count how many milestone positions have unlocked at or before the current sales count.
+            # If a position hit an ineligible customer, it remains unclaimed until the next eligible customer.
+            positions_unlocked = sum(1 for p in parsed_positions if p <= sales_count)
+            target_capacity = (
+                offer.daily_quantity
+                if offer.daily_quantity > 0
+                else len(parsed_positions)
             )
-            return is_match
+            max_allowed = min(positions_unlocked, target_capacity)
+
+            return todayscount < max_allowed
 
         return False
 
