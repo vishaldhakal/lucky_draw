@@ -1,5 +1,6 @@
 import csv
 import datetime
+import math
 
 from django.core.exceptions import ValidationError
 from django.db.models import Count
@@ -1279,12 +1280,15 @@ class CustomerListCreateView(generics.ListCreateAPIView):
         today_time = timezone.now().time()
 
         if hasattr(offer, "gift") and hasattr(offer.gift, "all"):
+            offer_gifts = list(offer.gift.all())
             selected_gift = offer.gift.first()
         else:
             selected_gift = getattr(offer, "gift", None)
+            offer_gifts = [selected_gift] if selected_gift else []
 
         # 1. Target region exclusivity check
         target_regions_str = getattr(offer, "target_regions", None)
+        allowed_regions = []
         if target_regions_str:
             allowed_regions = [
                 r.strip().lower() for r in target_regions_str.split(",") if r.strip()
@@ -1296,44 +1300,67 @@ class CustomerListCreateView(generics.ListCreateAPIView):
             ):
                 return False
 
-        # 2. Region balancing check
+        # 2. Dynamic region quota check (independent per region, no waiting for other regions)
         if offer.has_region_limit:
             if region == "None" or region == "Other":
                 return False
             if not selected_gift:
                 return False
 
-            region_counts = {
-                "Centeral Region": Customer.objects.filter(
-                    region="Centeral Region",
-                    gift=selected_gift,
+            lucky_draw_system = offer.lucky_draw_system
+
+            # Dynamic list of active regions from IMEINO and Customer for this lucky draw system
+            imei_regions = set(
+                IMEINO.objects
+                .filter(lucky_draw_system=lucky_draw_system)
+                .exclude(region__isnull=True)
+                .exclude(region__in=["", "None", "Other"])
+                .values_list("region", flat=True)
+                .distinct()
+            )
+            customer_regions = set(
+                Customer.objects
+                .filter(lucky_draw_system=lucky_draw_system)
+                .exclude(region__isnull=True)
+                .exclude(region__in=["", "None", "Other"])
+                .values_list("region", flat=True)
+                .distinct()
+            )
+            all_regions = list(imei_regions | customer_regions)
+
+            if allowed_regions:
+                target_region_set = {
+                    r for r in all_regions if r.strip().lower() in allowed_regions
+                } | {r.strip() for r in target_regions_str.split(",") if r.strip()}
+                all_regions = list(target_region_set)
+
+            if region not in all_regions:
+                all_regions.append(region)
+
+            if all_regions:
+                current_region_count = Customer.objects.filter(
+                    lucky_draw_system=lucky_draw_system,
+                    gift__in=offer_gifts if offer_gifts else [selected_gift],
                     date_of_purchase=today_date,
-                ).count(),
-                "Eastern Region": Customer.objects.filter(
-                    region="Eastern Region",
-                    gift=selected_gift,
-                    date_of_purchase=today_date,
-                ).count(),
-                "Western Region": Customer.objects.filter(
-                    region="Western Region",
-                    gift=selected_gift,
-                    date_of_purchase=today_date,
-                ).count(),
-            }
-            min_count = min(region_counts.values())
-            if region_counts.get(region, 0) > min_count:
-                return False
+                    region__iexact=region.strip(),
+                ).count()
+
+                num_regions = len(all_regions)
+                if offer.daily_quantity > 0 and num_regions > 0:
+                    max_per_region = math.ceil(offer.daily_quantity / num_regions)
+                    if current_region_count >= max_per_region:
+                        return False
 
         if offer.has_time_limit:
             if today_time < offer.start_time or today_time > offer.end_time:
                 return False
 
         if offer.type_of_offer == "After every certain sale":
-            todayscount = 0
-            if selected_gift:
-                todayscount = Customer.objects.filter(
-                    date_of_purchase=today_date, gift=selected_gift
-                ).count()
+            todayscount = Customer.objects.filter(
+                lucky_draw_system=offer.lucky_draw_system,
+                date_of_purchase=today_date,
+                gift__in=offer_gifts if offer_gifts else [selected_gift],
+            ).count()
 
             try:
                 cond_val = int(offer.offer_condition_value)
@@ -1352,11 +1379,11 @@ class CustomerListCreateView(generics.ListCreateAPIView):
             return todayscount < max_allowed
 
         elif offer.type_of_offer == "At certain sale position":
-            todayscount = 0
-            if selected_gift:
-                todayscount = Customer.objects.filter(
-                    date_of_purchase=today_date, gift=selected_gift
-                ).count()
+            todayscount = Customer.objects.filter(
+                lucky_draw_system=offer.lucky_draw_system,
+                date_of_purchase=today_date,
+                gift__in=offer_gifts if offer_gifts else [selected_gift],
+            ).count()
 
             sale_nums = offer.sale_numbers or []
             parsed_positions = []
@@ -1714,9 +1741,11 @@ class InfinixCustomerListCreateView(generics.ListCreateAPIView):
         today_time = timezone.now().time()
 
         if hasattr(offer, "gift") and hasattr(offer.gift, "all"):
+            offer_gifts = list(offer.gift.all())
             selected_gift = offer.gift.first()
         else:
             selected_gift = getattr(offer, "gift", None)
+            offer_gifts = [selected_gift] if selected_gift else []
 
         # 1. Target region exclusivity check
         target_regions_str = getattr(offer, "target_regions", None)
@@ -1732,7 +1761,7 @@ class InfinixCustomerListCreateView(generics.ListCreateAPIView):
             ):
                 return False
 
-        # 2. Dynamic region balancing check
+        # 2. Dynamic region quota check (independent per region, no waiting for other regions)
         if offer.has_region_limit:
             if not region or region in ("None", "Other"):
                 return False
@@ -1761,44 +1790,38 @@ class InfinixCustomerListCreateView(generics.ListCreateAPIView):
             all_regions = list(imei_regions | customer_regions)
 
             if allowed_regions:
-                all_regions = [
+                target_region_set = {
                     r for r in all_regions if r.strip().lower() in allowed_regions
-                ]
+                } | {r.strip() for r in target_regions_str.split(",") if r.strip()}
+                all_regions = list(target_region_set)
 
             if region not in all_regions:
                 all_regions.append(region)
 
             if all_regions:
-                daily_counts_qs = (
-                    Customer.objects
-                    .filter(
-                        lucky_draw_system=lucky_draw_system,
-                        gift=selected_gift,
-                        date_of_purchase=today_date,
-                        region__in=all_regions,
-                    )
-                    .values("region")
-                    .annotate(total=Count("id"))
-                )
-                counts_by_region = {
-                    item["region"]: item["total"] for item in daily_counts_qs
-                }
-                region_counts = {r: counts_by_region.get(r, 0) for r in all_regions}
+                current_region_count = Customer.objects.filter(
+                    lucky_draw_system=lucky_draw_system,
+                    gift__in=offer_gifts if offer_gifts else [selected_gift],
+                    date_of_purchase=today_date,
+                    region__iexact=region.strip(),
+                ).count()
 
-                min_count = min(region_counts.values())
-                if region_counts.get(region, 0) > min_count:
-                    return False
+                num_regions = len(all_regions)
+                if offer.daily_quantity > 0 and num_regions > 0:
+                    max_per_region = math.ceil(offer.daily_quantity / num_regions)
+                    if current_region_count >= max_per_region:
+                        return False
 
         if offer.has_time_limit:
             if today_time < offer.start_time or today_time > offer.end_time:
                 return False
 
         if offer.type_of_offer == "After every certain sale":
-            todayscount = 0
-            if selected_gift:
-                todayscount = Customer.objects.filter(
-                    date_of_purchase=today_date, gift=selected_gift
-                ).count()
+            todayscount = Customer.objects.filter(
+                lucky_draw_system=offer.lucky_draw_system,
+                date_of_purchase=today_date,
+                gift__in=offer_gifts if offer_gifts else [selected_gift],
+            ).count()
 
             try:
                 cond_val = int(offer.offer_condition_value)
@@ -1817,11 +1840,11 @@ class InfinixCustomerListCreateView(generics.ListCreateAPIView):
             return todayscount < max_allowed
 
         elif offer.type_of_offer == "At certain sale position":
-            todayscount = 0
-            if selected_gift:
-                todayscount = Customer.objects.filter(
-                    date_of_purchase=today_date, gift=selected_gift
-                ).count()
+            todayscount = Customer.objects.filter(
+                lucky_draw_system=offer.lucky_draw_system,
+                date_of_purchase=today_date,
+                gift__in=offer_gifts if offer_gifts else [selected_gift],
+            ).count()
 
             sale_nums = offer.sale_numbers or []
             parsed_positions = []
@@ -2645,12 +2668,15 @@ class YachuCustomerListCreateView(generics.ListCreateAPIView):
         today_time = timezone.now().time()
 
         if hasattr(offer, "gift") and hasattr(offer.gift, "all"):
+            offer_gifts = list(offer.gift.all())
             selected_gift = offer.gift.first()
         else:
             selected_gift = getattr(offer, "gift", None)
+            offer_gifts = [selected_gift] if selected_gift else []
 
         # 1. Target region exclusivity check
         target_regions_str = getattr(offer, "target_regions", None)
+        allowed_regions = []
         if target_regions_str:
             allowed_regions = [
                 r.strip().lower() for r in target_regions_str.split(",") if r.strip()
@@ -2662,44 +2688,67 @@ class YachuCustomerListCreateView(generics.ListCreateAPIView):
             ):
                 return False
 
-        # 2. Region balancing check
+        # 2. Dynamic region quota check (independent per region, no waiting for other regions)
         if offer.has_region_limit:
             if region == "None" or region == "Other":
                 return False
             if not selected_gift:
                 return False
 
-            region_counts = {
-                "Centeral Region": Customer.objects.filter(
-                    region="Centeral Region",
-                    gift=selected_gift,
+            lucky_draw_system = offer.lucky_draw_system
+
+            # Dynamic list of active regions from IMEINO and Customer for this lucky draw system
+            imei_regions = set(
+                IMEINO.objects
+                .filter(lucky_draw_system=lucky_draw_system)
+                .exclude(region__isnull=True)
+                .exclude(region__in=["", "None", "Other"])
+                .values_list("region", flat=True)
+                .distinct()
+            )
+            customer_regions = set(
+                Customer.objects
+                .filter(lucky_draw_system=lucky_draw_system)
+                .exclude(region__isnull=True)
+                .exclude(region__in=["", "None", "Other"])
+                .values_list("region", flat=True)
+                .distinct()
+            )
+            all_regions = list(imei_regions | customer_regions)
+
+            if allowed_regions:
+                target_region_set = {
+                    r for r in all_regions if r.strip().lower() in allowed_regions
+                } | {r.strip() for r in target_regions_str.split(",") if r.strip()}
+                all_regions = list(target_region_set)
+
+            if region not in all_regions:
+                all_regions.append(region)
+
+            if all_regions:
+                current_region_count = Customer.objects.filter(
+                    lucky_draw_system=lucky_draw_system,
+                    gift__in=offer_gifts if offer_gifts else [selected_gift],
                     date_of_purchase=today_date,
-                ).count(),
-                "Eastern Region": Customer.objects.filter(
-                    region="Eastern Region",
-                    gift=selected_gift,
-                    date_of_purchase=today_date,
-                ).count(),
-                "Western Region": Customer.objects.filter(
-                    region="Western Region",
-                    gift=selected_gift,
-                    date_of_purchase=today_date,
-                ).count(),
-            }
-            min_count = min(region_counts.values())
-            if region_counts.get(region, 0) > min_count:
-                return False
+                    region__iexact=region.strip(),
+                ).count()
+
+                num_regions = len(all_regions)
+                if offer.daily_quantity > 0 and num_regions > 0:
+                    max_per_region = math.ceil(offer.daily_quantity / num_regions)
+                    if current_region_count >= max_per_region:
+                        return False
 
         if offer.has_time_limit:
             if today_time < offer.start_time or today_time > offer.end_time:
                 return False
 
         if offer.type_of_offer == "After every certain sale":
-            todayscount = 0
-            if selected_gift:
-                todayscount = Customer.objects.filter(
-                    date_of_purchase=today_date, gift=selected_gift
-                ).count()
+            todayscount = Customer.objects.filter(
+                lucky_draw_system=offer.lucky_draw_system,
+                date_of_purchase=today_date,
+                gift__in=offer_gifts if offer_gifts else [selected_gift],
+            ).count()
 
             try:
                 cond_val = int(offer.offer_condition_value)
@@ -2718,11 +2767,11 @@ class YachuCustomerListCreateView(generics.ListCreateAPIView):
             return todayscount < max_allowed
 
         elif offer.type_of_offer == "At certain sale position":
-            todayscount = 0
-            if selected_gift:
-                todayscount = Customer.objects.filter(
-                    date_of_purchase=today_date, gift=selected_gift
-                ).count()
+            todayscount = Customer.objects.filter(
+                lucky_draw_system=offer.lucky_draw_system,
+                date_of_purchase=today_date,
+                gift__in=offer_gifts if offer_gifts else [selected_gift],
+            ).count()
 
             sale_nums = offer.sale_numbers or []
             parsed_positions = []
