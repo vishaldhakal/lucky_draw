@@ -135,6 +135,10 @@ class ElectronicsShopOfferSerializer(serializers.ModelSerializer):
 
 
 class CustomerSerializer(serializers.ModelSerializer):
+    gift = serializers.PrimaryKeyRelatedField(
+        many=True, queryset=GiftItem.objects.all(), required=False
+    )
+
     class Meta:
         model = Customer
         fields = [
@@ -150,7 +154,67 @@ class CustomerSerializer(serializers.ModelSerializer):
             "date_of_purchase",
             "how_know_about_campaign",
             "profession",
+            "gift",
         ]
+
+
+class CustomerExportFilterSerializer(serializers.Serializer):
+    """
+    Serializer used for Customer Export API form and validation.
+    Provides multi-select for gifts, date filters, and customer attributes.
+    """
+
+    lucky_draw_system = serializers.PrimaryKeyRelatedField(
+        queryset=LuckyDrawSystem.objects.all(),
+        required=False,
+        allow_null=True,
+        label="Lucky draw system",
+    )
+    gift = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=GiftItem.objects.all(),
+        required=False,
+        label="Gift (Multiple Selection)",
+        help_text="Select one or more gifts to filter customers",
+    )
+    start_date = serializers.DateField(
+        required=False,
+        allow_null=True,
+        label="Start date (YYYY-MM-DD)",
+        input_formats=["%Y-%m-%d"],
+    )
+    end_date = serializers.DateField(
+        required=False,
+        allow_null=True,
+        label="End date (YYYY-MM-DD)",
+        input_formats=["%Y-%m-%d"],
+    )
+    filter = serializers.ChoiceField(
+        choices=[("all", "All Dates"), ("today", "Today Only")],
+        required=False,
+        default="all",
+        label="Date Preset",
+    )
+    customer_name = serializers.CharField(
+        required=False, allow_blank=True, label="Customer name"
+    )
+    phone_number = serializers.CharField(
+        required=False, allow_blank=True, label="Phone number"
+    )
+    shop_name = serializers.CharField(
+        required=False, allow_blank=True, label="Shop name"
+    )
+    sold_area = serializers.CharField(
+        required=False, allow_blank=True, label="Sold area"
+    )
+    region = serializers.CharField(required=False, allow_blank=True, label="Region")
+    phone_model = serializers.CharField(
+        required=False, allow_blank=True, label="Phone model"
+    )
+    imei = serializers.CharField(required=False, allow_blank=True, label="IMEI")
+    sale_status = serializers.CharField(
+        required=False, allow_blank=True, label="Sale status"
+    )
 
 
 class CustomerGiftSerializer(serializers.ModelSerializer):
@@ -201,7 +265,10 @@ class BulkDeleteLuckyDrawIMEISerializer(serializers.Serializer):
 
         # Support aliases like lucky_draw_system_id or system_id
         if "lucky_draw_system" not in data or data["lucky_draw_system"] in ("", None):
-            if "lucky_draw_system_id" in data and data["lucky_draw_system_id"] not in ("", None):
+            if "lucky_draw_system_id" in data and data["lucky_draw_system_id"] not in (
+                "",
+                None,
+            ):
                 data["lucky_draw_system"] = data["lucky_draw_system_id"]
             elif "system_id" in data and data["system_id"] not in ("", None):
                 data["lucky_draw_system"] = data["system_id"]
@@ -259,7 +326,10 @@ class BulkUploadIMEISerializer(serializers.Serializer):
 
         # Support aliases like lucky_draw_system_id or system_id
         if "lucky_draw_system" not in data or data["lucky_draw_system"] in ("", None):
-            if "lucky_draw_system_id" in data and data["lucky_draw_system_id"] not in ("", None):
+            if "lucky_draw_system_id" in data and data["lucky_draw_system_id"] not in (
+                "",
+                None,
+            ):
                 data["lucky_draw_system"] = data["lucky_draw_system_id"]
             elif "system_id" in data and data["system_id"] not in ("", None):
                 data["lucky_draw_system"] = data["system_id"]
@@ -268,7 +338,9 @@ class BulkUploadIMEISerializer(serializers.Serializer):
 
     def validate_file(self, value):
         if not value.name.lower().endswith(".csv"):
-            raise serializers.ValidationError("Invalid file format. Please upload a CSV file.")
+            raise serializers.ValidationError(
+                "Invalid file format. Please upload a CSV file."
+            )
         if value.size == 0:
             raise serializers.ValidationError("The uploaded CSV file is empty.")
         return value
@@ -329,7 +401,10 @@ class BulkUploadIMEIWithRegionSerializer(serializers.Serializer):
 
         # Support aliases like lucky_draw_system_id or system_id
         if "lucky_draw_system" not in data or data["lucky_draw_system"] in ("", None):
-            if "lucky_draw_system_id" in data and data["lucky_draw_system_id"] not in ("", None):
+            if "lucky_draw_system_id" in data and data["lucky_draw_system_id"] not in (
+                "",
+                None,
+            ):
                 data["lucky_draw_system"] = data["lucky_draw_system_id"]
             elif "system_id" in data and data["system_id"] not in ("", None):
                 data["lucky_draw_system"] = data["system_id"]
@@ -362,7 +437,6 @@ class BulkUploadIMEIWithRegionSerializer(serializers.Serializer):
                     "You do not have permission to upload IMEIs for this lucky draw system."
                 )
         return value
-
 
 
 class UploadFixOfferFileSerializer(serializers.Serializer):
@@ -428,7 +502,10 @@ class UploadFixOfferFileSerializer(serializers.Serializer):
 
         # Support aliases for lucky_draw_system (lucky_draw_system_id, system_id)
         if "lucky_draw_system" not in data or data["lucky_draw_system"] in ("", None):
-            if "lucky_draw_system_id" in data and data["lucky_draw_system_id"] not in ("", None):
+            if "lucky_draw_system_id" in data and data["lucky_draw_system_id"] not in (
+                "",
+                None,
+            ):
                 data["lucky_draw_system"] = data["lucky_draw_system_id"]
             elif "system_id" in data and data["system_id"] not in ("", None):
                 data["lucky_draw_system"] = data["system_id"]
@@ -466,11 +543,9 @@ class UploadFixOfferFileSerializer(serializers.Serializer):
         else:
             for g in selected_gifts:
                 if g.lucky_draw_system_id != lucky_draw_system.id:
-                    raise serializers.ValidationError(
-                        {
-                            "gift": f"Gift '{g.name}' does not belong to the selected Lucky Draw System '{lucky_draw_system.name}'."
-                        }
-                    )
+                    raise serializers.ValidationError({
+                        "gift": f"Gift '{g.name}' does not belong to the selected Lucky Draw System '{lucky_draw_system.name}'."
+                    })
 
         request = self.context.get("request")
         if (
@@ -482,16 +557,9 @@ class UploadFixOfferFileSerializer(serializers.Serializer):
             and not getattr(request.user, "is_superuser", False)
         ):
             if lucky_draw_system.organization_id != request.user.organization.id:
-                raise serializers.ValidationError(
-                    {
-                        "lucky_draw_system": "You do not have permission to create offers for this lucky draw system."
-                    }
-                )
+                raise serializers.ValidationError({
+                    "lucky_draw_system": "You do not have permission to create offers for this lucky draw system."
+                })
 
         attrs["selected_gifts"] = selected_gifts
         return attrs
-
-
-
-
-

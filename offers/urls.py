@@ -142,10 +142,10 @@ urlpatterns = [
         views.InfinixCustomerListCreateView.as_view(),
         name="infinix-customer-list-create",
     ),
-    # Download Customer Detial
+    # Download Customer Detail
     path(
         "download-customer-details/",
-        views.download_customers_detail,
+        views.CustomerExportAPIView.as_view(),
         name="download-customer-details",
     ),
     # Get all gift list
@@ -168,6 +168,10 @@ urlpatterns = [
         views.UploadFixOfferBulkView.as_view(),
         name="upload-fix-offer",
     ),
-    path("export-data/<int:pk>/", views.export_data, name="export-exportdata"),
+    path(
+        "export-data/<int:pk>/",
+        views.CustomerExportAPIView.as_view(),
+        name="export-exportdata",
+    ),
     path("export-imei/", views.export_imei, name="export-imei"),
 ]

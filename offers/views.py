@@ -1,18 +1,18 @@
 import csv
-import datetime
 import math
 
 from django.core.exceptions import ValidationError
 from django.db.models import Count
 from django.http import HttpResponse
 from django.utils import timezone
-from django.utils.text import slugify
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import generics, status
 from rest_framework.decorators import api_view, parser_classes
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
+from .filters import CustomerFilter
 from .models import (
     IMEINO,
     Customer,
@@ -31,6 +31,7 @@ from .serializers import (
     BulkDeleteLuckyDrawIMEISerializer,
     BulkUploadIMEISerializer,
     BulkUploadIMEIWithRegionSerializer,
+    CustomerExportFilterSerializer,
     CustomerGiftSerializer,
     CustomerSerializer,
     ElectronicShopOfferConditionSerializer,
@@ -51,6 +52,7 @@ from .services import (
     bulk_upload_imeis_from_csv,
     bulk_upload_imeis_with_region_from_file,
     delete_imeis_for_lucky_draw_system,
+    export_customers_to_csv,
 )
 
 
@@ -974,6 +976,8 @@ class ElectronicsShopOfferRetrieveUpdateDestroyView(
 
 class CustomerListCreateView(generics.ListCreateAPIView):
     serializer_class = CustomerSerializer
+    filter_backends = (DjangoFilterBackend,)
+    filterset_class = CustomerFilter
 
     def get_permissions(self):
         if self.request.method == "GET":
@@ -981,8 +985,11 @@ class CustomerListCreateView(generics.ListCreateAPIView):
         return [AllowAny()]
 
     def get_queryset(self):
-        return Customer.objects.select_related("lucky_draw_system").filter(
-            lucky_draw_system__organization=self.request.user.organization
+        return (
+            Customer.objects
+            .select_related("lucky_draw_system")
+            .prefetch_related("gift")
+            .filter(lucky_draw_system__organization=self.request.user.organization)
         )
 
     def create(self, request, *args, **kwargs):
@@ -1428,6 +1435,8 @@ class CustomerListCreateView(generics.ListCreateAPIView):
 
 class InfinixCustomerListCreateView(generics.ListCreateAPIView):
     serializer_class = CustomerSerializer
+    filter_backends = (DjangoFilterBackend,)
+    filterset_class = CustomerFilter
 
     def get_permissions(self):
         if self.request.method == "GET":
@@ -1435,8 +1444,11 @@ class InfinixCustomerListCreateView(generics.ListCreateAPIView):
         return [AllowAny()]
 
     def get_queryset(self):
-        return Customer.objects.select_related("lucky_draw_system").filter(
-            lucky_draw_system__organization=self.request.user.organization
+        return (
+            Customer.objects
+            .select_related("lucky_draw_system")
+            .prefetch_related("gift")
+            .filter(lucky_draw_system__organization=self.request.user.organization)
         )
 
     def create(self, request, *args, **kwargs):
@@ -2146,183 +2158,82 @@ def export_imei(request):
     )
 
 
-@api_view(["POST"])
-def download_customers_detail(request):
-    if request.method == "POST":
-        data = request.data
-        start_date = data.get("start_date", datetime.date.today())
-        end_date = data.get("end_date", datetime.date.today())
-        luckydraw = data.get("lucky_draw_system_id", None)
+class CustomerExportAPIView(generics.GenericAPIView):
+    """
+    API View to export filtered customer details to CSV using CustomerFilter.
+    Supports GET (query params) and POST (body data) filtering.
+    """
 
-        # Create a base queryset for customers with gifts
-        queryset = Customer.objects.all()
+    serializer_class = CustomerExportFilterSerializer
+    filter_backends = (DjangoFilterBackend,)
+    filterset_class = CustomerFilter
 
-        if luckydraw is not None:
-            system = LuckyDrawSystem.objects.get(id=luckydraw)
-            queryset = queryset.filter(lucky_draw_system=system)
+    def get_permissions(self):
+        return [AllowAny()]
 
-        if start_date and end_date:
-            queryset = queryset.filter(date_of_purchase__range=(start_date, end_date))
+    def get_queryset(self):
+        qs = Customer.objects.select_related(
+            "lucky_draw_system", "recharge_card"
+        ).prefetch_related("gift")
+        pk = self.kwargs.get("pk")
+        if pk:
+            qs = qs.filter(lucky_draw_system_id=pk)
+        elif (
+            self.request.user
+            and self.request.user.is_authenticated
+            and hasattr(self.request.user, "organization")
+        ):
+            raw_data = (
+                self.request.query_params
+                if self.request.method == "GET"
+                else self.request.data
+            )
+            if not raw_data.get("lucky_draw_system") and not raw_data.get(
+                "lucky_draw_system_id"
+            ):
+                qs = qs.filter(
+                    lucky_draw_system__organization=self.request.user.organization
+                )
+        return qs
 
-        if start_date and not end_date:
-            queryset = queryset.filter(date_of_purchase=start_date)
+    def post(self, request, *args, **kwargs):
+        filterset = self.filterset_class(request.data, queryset=self.get_queryset())
+        filtered_qs = filterset.qs
 
-        if end_date and not start_date:
-            queryset = queryset.filter(date_of_purchase=end_date)
+        prefix = "customers_detail"
+        pk = (
+            self.kwargs.get("pk")
+            or request.data.get("lucky_draw_system_id")
+            or request.data.get("lucky_draw_system")
+        )
+        if pk:
+            try:
+                system = LuckyDrawSystem.objects.get(id=pk)
+                prefix = system.name
+            except LuckyDrawSystem.DoesNotExist:
+                pass
 
-        # Create a CSV response
-        response = HttpResponse(content_type="text/csv")
-        response["Content-Disposition"] = 'attachment; filename="customers_detail.csv"'
+        date_label = filterset.get_date_label()
 
-        # Create a CSV writer and write the header row
-        writer = csv.writer(response)
-        writer.writerow([
-            "Customer Name",
-            "Shop Name",
-            "Sold Area",
-            "Region",
-            "Phone Number",
-            "Phone Model",
-            "Sale Status",
-            "Prize Details",
-            "IMEI",
-            "Gift",
-            "Date of Purchase",
-            "How Know About Campaign",
-            "Profession",
-        ])
-
-        # Write the data rows
-        for customer in queryset:
-            writer.writerow([
-                customer.customer_name,
-                customer.shop_name,
-                customer.sold_area,
-                customer.region,
-                customer.phone_number,
-                customer.phone_model,
-                customer.sale_status,
-                customer.prize_details,
-                customer.imei,
-                ", ".join([gift.name for gift in customer.gift.all()])
-                if customer.gift.exists()
-                else "",
-                customer.date_of_purchase,
-                customer.how_know_about_campaign,
-                customer.profession,
-            ])
-
-        return response
-
-
-def is_value_empty(val):
-    if val is None or val == "":
-        return True
-    if isinstance(val, str) and val.strip().lower() in ("", "none", "null"):
-        return True
-    return False
+        return export_customers_to_csv(
+            queryset=filtered_qs,
+            filename_prefix=prefix,
+            date_label=date_label,
+        )
 
 
 def export_data(request, pk):
-    luckydraw = LuckyDrawSystem.objects.get(id=pk)
-    today_date = timezone.now().date()
-    safe_name = slugify(luckydraw.name) if luckydraw.name else "luckydraw"
+    return CustomerExportAPIView.as_view()(request, pk=pk)
 
-    cust = (
-        Customer.objects
-        .filter(lucky_draw_system=luckydraw)
-        .prefetch_related("gift")
-        .select_related("recharge_card")
-    )
 
-    filter_param = request.GET.get("filter")
-    start_date_param = request.GET.get("start_date")
-    end_date_param = request.GET.get("end_date")
-    start_date = None
-    end_date = None
-
-    if start_date_param:
-        try:
-            start_date = datetime.datetime.strptime(start_date_param, "%Y-%m-%d").date()
-        except ValueError:
-            start_date = None
-
-    if end_date_param:
-        try:
-            end_date = datetime.datetime.strptime(end_date_param, "%Y-%m-%d").date()
-        except ValueError:
-            end_date = None
-
-    if start_date and end_date:
-        if start_date == end_date:
-            cust = cust.filter(date_of_purchase=start_date)
-            date_str = f"{start_date}"
-        else:
-            cust = cust.filter(
-                date_of_purchase__gte=start_date, date_of_purchase__lte=end_date
-            )
-            date_str = f"{start_date}_to_{end_date}"
-    elif start_date:
-        cust = cust.filter(date_of_purchase=start_date)
-        date_str = f"{start_date}"
-    elif end_date:
-        cust = cust.filter(date_of_purchase__lte=end_date)
-        date_str = f"to_{end_date}"
-    elif filter_param == "today":
-        cust = cust.filter(date_of_purchase=today_date)
-        date_str = f"{today_date}"
-    else:
-        date_str = "all"
-
-    filename = f"{safe_name}_{date_str}.csv"
-
-    response = HttpResponse(content_type="text/csv")
-    response["Content-Disposition"] = f'attachment; filename="{filename}"'
-    writer = csv.writer(response)
-
-    columns_def = [
-        ("Date of Purchase", lambda c, g: c.date_of_purchase),
-        ("Customer Name", lambda c, g: c.customer_name),
-        ("Shop Name", lambda c, g: c.shop_name),
-        ("Sold Area", lambda c, g: c.sold_area),
-        ("Phone Number", lambda c, g: c.phone_number),
-        ("Email", lambda c, g: c.email),
-        ("Phone Model", lambda c, g: c.phone_model),
-        ("IMEI", lambda c, g: c.imei),
-        ("How Know About Campaign", lambda c, g: c.how_know_about_campaign),
-        ("Profession", lambda c, g: c.profession),
-        ("Region", lambda c, g: c.region),
-        ("Gift", lambda c, g: ", ".join([gift.name for gift in g]) if g else ""),
-        ("Prize Details", lambda c, g: c.prize_details),
-    ]
-
-    all_rows = []
-    for customer in cust:
-        gifts = list(customer.gift.all())
-        row = [getter(customer, gifts) for _, getter in columns_def]
-        all_rows.append(row)
-
-    if all_rows:
-        active_indices = [
-            col_idx
-            for col_idx in range(len(columns_def))
-            if any(not is_value_empty(row[col_idx]) for row in all_rows)
-        ]
-    else:
-        active_indices = list(range(len(columns_def)))
-
-    headers = [columns_def[idx][0] for idx in active_indices]
-    writer.writerow(headers)
-
-    for row in all_rows:
-        filtered_row = [row[idx] for idx in active_indices]
-        writer.writerow(filtered_row)
-
-    return response
+def download_customers_detail(request):
+    return CustomerExportAPIView.as_view()(request)
 
 
 class YachuCustomerListCreateView(generics.ListCreateAPIView):
     serializer_class = CustomerSerializer
+    filter_backends = (DjangoFilterBackend,)
+    filterset_class = CustomerFilter
 
     def get_permissions(self):
         if self.request.method == "GET":
@@ -2330,8 +2241,11 @@ class YachuCustomerListCreateView(generics.ListCreateAPIView):
         return [AllowAny()]
 
     def get_queryset(self):
-        return Customer.objects.select_related("lucky_draw_system").filter(
-            lucky_draw_system__organization=self.request.user.organization
+        return (
+            Customer.objects
+            .select_related("lucky_draw_system")
+            .prefetch_related("gift")
+            .filter(lucky_draw_system__organization=self.request.user.organization)
         )
 
     def create(self, request, *args, **kwargs):
