@@ -2196,6 +2196,33 @@ class CustomerExportAPIView(generics.GenericAPIView):
                 )
         return qs
 
+    def get(self, request, *args, **kwargs):
+        filterset = self.filterset_class(
+            request.query_params, queryset=self.get_queryset()
+        )
+        filtered_qs = filterset.qs
+
+        prefix = "customers_detail"
+        pk = (
+            self.kwargs.get("pk")
+            or request.query_params.get("lucky_draw_system_id")
+            or request.query_params.get("lucky_draw_system")
+        )
+        if pk:
+            try:
+                system = LuckyDrawSystem.objects.get(id=pk)
+                prefix = system.name
+            except LuckyDrawSystem.DoesNotExist:
+                pass
+
+        date_label = filterset.get_date_label()
+
+        return export_customers_to_csv(
+            queryset=filtered_qs,
+            filename_prefix=prefix,
+            date_label=date_label,
+        )
+
     def post(self, request, *args, **kwargs):
         filterset = self.filterset_class(request.data, queryset=self.get_queryset())
         filtered_qs = filterset.qs
