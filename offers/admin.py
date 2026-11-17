@@ -98,6 +98,7 @@ class CustomerAdmin(ModelAdmin):
         "how_know_about_campaign",
         "sold_area",
         "date_of_purchase",
+        "gift",
     )
     list_display = (
         "customer_name",
